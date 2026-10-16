@@ -254,7 +254,7 @@ function renderCard(){
       ${Q.calc?`<details><summary>계산 풀이</summary><div class="calc">${esc(Q.calc)}</div></details>`:''}
       ${Q.tip?`<div class="tip">암기팁: ${esc(Q.tip)}</div>`:''}
       ${Q.revision?`<div class="note">법 개정 주의: ${esc(Q.revision)}</div>`:''}
-      <details><summary>문제 전체 보기</summary><div class="note">${esc(Q.question)}${Q.passage&&Q.passage.length?'\n'+esc(Q.passage.join('\n')):''}<br>${Q.choices.map((t,i)=>`${CIRC[i]} ${esc(t)}`).join('<br>')}<br><b>정답 ${CIRC[Q.answer-1]}</b></div></details>
+      <details><summary>문제 전체 보기</summary><div class="note">${esc(Q.question)}${Q.passage&&Q.passage.length?'\n'+esc(Q.passage.join('\n')):''}<br>${Q.choices.map((t,i)=>`${CIRC[i]} ${esc(t)}`).join('<br>')}<br><b>정답 ${Q.all_correct?'모두 정답(이의신청으로 전항정답 처리)':CIRC[Q.answer-1]}</b></div></details>
     </div>
     <div class="card">
       <b>${ok?'맞혔습니다. 솔직하게 고르세요.':'다음에 다시 나옵니다.'}</b>
@@ -318,7 +318,7 @@ function renderExamPaper(){
   let html=`<div class="exam"><div class="row"><b>${exam.round}회 ${exam.subj==='rea'?'부동산학개론':'민법'}</b><button class="btn ghost small" style="flex:0 0 auto;padding:6px 10px" id="exit">나가기</button></div>`;
   for(const q of qs){
     html+=`<div class="q">${q.no}. ${esc(q.question)}</div>${q.passage.length?`<div class="passage">${esc(q.passage.join('\n'))}</div>`:''}`;
-    q.choices.forEach((t,i)=>{ const sel=exam.answers[q.no]===i+1; let cls='opt'+(sel?' sel':''); if(exam.done){ if(i+1===q.answer) cls+=' right'; else if(sel) cls+=' wrongsel'; } html+=`<button class="${cls}" data-q="${q.no}" data-i="${i+1}">${CIRC[i]} ${esc(t)}</button>`; });
+    q.choices.forEach((t,i)=>{ const sel=exam.answers[q.no]===i+1; let cls='opt'+(sel?' sel':''); if(exam.done){ if(q.all_correct?sel:(i+1===q.answer)) cls+=' right'; else if(sel) cls+=' wrongsel'; } html+=`<button class="${cls}" data-q="${q.no}" data-i="${i+1}">${CIRC[i]} ${esc(t)}</button>`; });
     if(exam.done&&q.core) html+=`<div class="note">${esc(q.core)}</div>`;
   }
   const n=Object.keys(exam.answers).length;
@@ -330,7 +330,7 @@ function renderExamPaper(){
 function gradeExam(){
   const qs=Object.values(D.questions).filter(q=>q.round===exam.round&&q.subject===exam.subj);
   let right=0;
-  for(const q of qs){ const ok=exam.answers[q.no]===q.answer; if(ok) right++; else { for(const c of D.cards){ if(c.q===`${q.round}-${q.no}`){ const st=cardState(c.id); if(st.st===2){ st.st=1; } st.k=[]; st.due=today(); st.miss++; } } } }
+  for(const q of qs){ const ok=q.all_correct?!!exam.answers[q.no]:(exam.answers[q.no]===q.answer); if(ok) right++; else { for(const c of D.cards){ if(c.q===`${q.round}-${q.no}`){ const st=cardState(c.id); if(st.st===2){ st.st=1; } st.k=[]; st.due=today(); st.miss++; } } } }
   exam.done=true; exam.score=Math.round(right*2.5);
   S.exam[exam.round+exam.subj]={score:exam.score,date:today(),right}; save(); renderExamPaper(); header();
 }
