@@ -230,14 +230,23 @@ function renderCard(){
     <div><span class="tag ${Q.grade}">${Q.grade}급</span><span class="tag">${subj} ${Q.round}회 ${Q.no}번</span>${isAudit?'<span class="tag" style="background:var(--line);color:var(--ink2)">지운 카드 검사</span>':''}${st.st===1?`<span class="muted" style="font-size:12px">근거까지 ${st.k.length}/2</span>`:''}</div>
     <div class="muted" style="font-size:12px;margin-top:4px">${esc(Q.concept)}</div>
     <div class="qstem">${esc(Q.question)}</div>
-    ${Q.passage&&Q.passage.length&&c.n.match(/[①②③④⑤]/)?`<div class="passage">${esc(Q.passage.join('\n'))}</div>`:''}
-    <div class="choice" id="choice">${c.n} ${s.phase==='ask'?esc(c.text):markChoice(c.text,c.wrong)}</div>`;
-  if(s.phase==='ask'){
-    html+=`<div class="btns"><button class="btn o" data-p="O">O 옳다</button><button class="btn x" data-p="X">X 틀리다</button></div>
-    <p class="muted center" style="margin:10px 0 0">모르겠으면 아무거나 누르고 근거를 읽으세요</p></div>`;
+    ${Q.passage&&Q.passage.length&&(c.kind==='calc'||c.n.match(/[①②③④⑤]/))?`<div class="passage">${esc(Q.passage.join('\n'))}</div>`:''}`;
+  if(c.kind==='calc'){
+    html+=`<div class="choice" style="font-size:16px">${Q.choices.map((t,i)=>`<div style="margin:4px 0;${s.phase!=='ask'&&CIRC[i]===c.ox?'color:var(--o);font-weight:800':''}${s.phase!=='ask'&&CIRC[i]===s.pick&&s.pick!==c.ox?'color:var(--x);text-decoration:line-through':''}">${CIRC[i]} ${esc(t)}</div>`).join('')}</div>`;
+    if(s.phase==='ask'){
+      html+=`<div class="btns">${Q.choices.map((t,i)=>`<button class="btn n" style="padding:14px 4px" data-p="${CIRC[i]}">${CIRC[i]}</button>`).join('')}</div>
+      <p class="muted center" style="margin:10px 0 0">계산문제. 식이 안 떠오르면 아무거나 누르고 풀이를 읽으세요</p></div>`;
+    }
   } else {
+    html+=`<div class="choice" id="choice">${c.n} ${s.phase==='ask'?esc(c.text):markChoice(c.text,c.wrong)}</div>`;
+    if(s.phase==='ask'){
+      html+=`<div class="btns"><button class="btn o" data-p="O">O 옳다</button><button class="btn x" data-p="X">X 틀리다</button></div>
+      <p class="muted center" style="margin:10px 0 0">모르겠으면 아무거나 누르고 근거를 읽으세요</p></div>`;
+    }
+  }
+  if(s.phase!=='ask'){
     const ok=s.pick===c.ox;
-    html+=`<div class="verdict ${ok?'ok':'bad'}">${ok?'맞음':'틀림'} · 정답은 ${c.ox==='O'?'O 옳은 선지':'X 틀린 선지'}</div>
+    html+=`<div class="verdict ${ok?'ok':'bad'}">${ok?'맞음':'틀림'} · 정답은 ${c.kind==='calc'?c.ox:(c.ox==='O'?'O 옳은 선지':'X 틀린 선지')}</div>
       ${c.ox==='X'&&c.fix?`<div class="fix">바로잡기: ${esc(c.fix)}</div>`:''}
       <div class="reason">${c.reason?esc(c.reason):'<span class="muted">근거 준비 중. 정답 여부만 확인하세요.</span>'}</div>
       ${c.law?`<div class="law">${esc(c.law)}</div>`:''}
