@@ -83,6 +83,13 @@ h2{font-size:17px;margin:14px 0 8px}
 .ask.truth{background:var(--o-bg)} .ask.pick{background:var(--acc-bg)}
 a.btn{display:block;text-align:center;text-decoration:none}
 .card.help{border-color:var(--acc)} .card.easy{border-color:var(--o)}
+.ins{color:var(--o);font-weight:800;background:var(--o-bg);border-radius:4px;padding:0 4px;margin-left:3px}
+.kind{font-size:13px;color:var(--x);margin:2px 0 6px;font-weight:700}
+.trap{font-size:14px;background:var(--warn-bg);color:var(--ink);padding:8px 10px;border-radius:8px;margin:6px 0}
+.box{font-size:15px;padding:8px 10px;border-radius:8px;margin:8px 0 0;line-height:1.55}
+.box b{display:inline-block;margin-right:6px}
+.box.issue{background:var(--acc-bg)} .box.intent{background:var(--x-bg)}
+.note.pre{white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -175,6 +182,7 @@ function renderToday(){
       <button class="btn ghost small" data-m="60">60분</button>
     </div>
   </div>
+  ${D.pilot&&D.pilot.length?`<div class="card" style="border-color:var(--acc)"><b>새 해설 시안 ${D.pilot.length}문항</b><p class="muted" style="margin:4px 0 8px">논점·출제 의도·판단 틀, 바꿔친 말에만 삭선. 검토용이라 기록에는 남지만 오늘 분량과 따로 돕니다.</p><div class="btns"><button class="btn n small" id="pilot">시안 보기</button></div></div>`:''}
   <div class="card">
     <b>예상 점수</b> <span class="muted">(최근 판단 정확도로 계산, 과목 40문항 × 2.5점)</span>
     <div class="stat">
@@ -195,6 +203,7 @@ function renderToday(){
     </ol>
   </div>`;
   main.querySelector('#start').onclick=()=>startSession(info.q);
+  const pb=main.querySelector('#pilot'); if(pb) pb.onclick=()=>startSession(D.cards.filter(c=>D.pilot.includes(c.q)));
   main.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ S.minutes=+b.dataset.m; save(); render(); });
 }
 function accuracy(){
@@ -247,14 +256,14 @@ function renderCard(){
     }
   } else if(c.mode==='pick'){
     html+=`<div class="ask pick">이 보기를 <b>고르나요?</b><span>발문 「${esc(Q.question)}」에 맞으면 고릅니다</span></div>
-    <div class="choice" id="choice">${c.n} ${esc(c.text)}</div>`;
+    <div class="choice" id="choice">${c.n} ${s.phase==='ask'?esc(c.text):renderMarked(c)}</div>`;
     if(s.phase==='ask'){
       html+=`<div class="btns"><button class="btn n" data-p="P">✔ 고른다</button><button class="btn g" data-p="N">✖ 안 고른다</button></div>
       <p class="muted center" style="margin:10px 0 0">고르기 카드는 O/X가 아니라 '고르나'를 묻습니다</p></div>`;
     }
   } else {
     html+=`<div class="ask truth">이 문장은 <b>옳은 말인가요?</b><span>발문이 옳은 것을 묻든 틀린 것을 묻든, 문장 자체가 맞는지만 봅니다</span></div>
-    <div class="choice" id="choice">${c.n} ${s.phase==='ask'?esc(c.text):markChoice(c.text,c.wrong)}</div>`;
+    <div class="choice" id="choice">${c.n} ${s.phase==='ask'?esc(c.text):renderMarked(c)}</div>`;
     if(s.phase==='ask'){
       html+=`<div class="btns"><button class="btn o" data-p="O">O 옳은 말</button><button class="btn x" data-p="X">X 틀린 말</button></div>
       <p class="muted center" style="margin:10px 0 0">모르겠으면 아무거나 누르고 근거를 읽으세요</p></div>`;
@@ -263,13 +272,19 @@ function renderCard(){
   if(s.phase!=='ask'){
     const ok=s.pick===c.ox;
     html+=`<div class="verdict ${ok?'ok':'bad'}">${ok?'맞음':'틀림'} · 정답은 ${ansLabel(c)}</div>
-      ${c.ox==='X'&&c.fix?`<div class="fix">바로잡기: ${esc(c.fix)}</div>`:''}
+      ${c.swap?`<div class="fix">바로잡은 문장: ${esc(fixedText(c))}</div><div class="kind">출제자의 바꿔치기: ${esc(c.swap.kind||'')}</div>`:(c.ox==='X'&&c.fix?`<div class="fix">바로잡기: ${esc(c.fix)}</div>`:'')}
+      ${c.trap?`<div class="trap"><b>출제자가 바꿀 자리</b> <span class="hl">${esc(c.key||'')}</span><br>${esc(c.trap)}</div>`:''}
+      ${c.alt?`<div class="note">${esc(c.alt)}</div>`:''}
       <div class="reason">${c.reason?esc(c.reason):'<span class="muted">근거 준비 중. 정답 여부만 확인하세요.</span>'}</div>
       ${c.law?`<div class="law">${esc(c.law)}</div>`:''}
-      ${Q.core?`<details><summary>이 문제의 핵심</summary><div class="note">${esc(Q.core)}</div></details>`:''}
+      ${Q.issue?`<div class="box issue"><b>논점</b> ${esc(Q.issue)}</div>`:''}
+      ${Q.intent?`<div class="box intent"><b>출제 의도</b> ${esc(Q.intent)}</div>`:''}
+      ${Q.frame?`<details open><summary>판단 틀 (헷갈리는 것 나란히 보기)</summary><div class="note pre">${esc(Q.frame)}</div></details>`:''}
+      ${Q.core&&!Q.issue?`<details><summary>이 문제의 핵심</summary><div class="note">${esc(Q.core)}</div></details>`:''}
       ${Q.calc?`<details><summary>계산 풀이</summary><div class="calc">${esc(Q.calc)}</div></details>`:''}
       ${Q.tip?`<div class="tip">암기팁: ${esc(Q.tip)}</div>`:''}
       ${Q.revision?`<div class="note">법 개정 주의: ${esc(Q.revision)}</div>`:''}
+      ${Q.related&&Q.related.length?`<details><summary>같은 논점 기출 ${Q.related.length}문항</summary><div class="note">${Q.related.map(x=>`${x.r}회 ${x.n}번 · ${esc(x.q)}`).join('<br>')}</div></details>`:''}
       <details><summary>문제 전체 보기</summary><div class="note">${esc(Q.question)}${Q.passage&&Q.passage.length?'\n'+esc(Q.passage.join('\n')):''}<br>${Q.choices.map((t,i)=>`${CIRC[i]} ${esc(t)}`).join('<br>')}<br><b>정답 ${Q.all_correct?'모두 정답(이의신청으로 전항정답 처리)':CIRC[Q.answer-1]}</b></div></details>
     </div>
     ${c.easy?`<div class="card easy"><b>쉬운 설명</b><div class="reason">${esc(c.easy)}</div></div>`:''}
@@ -297,6 +312,13 @@ function renderCard(){
   const cb=main.querySelector('#confused'); if(cb) cb.onclick=()=>{ s.confused=true; if(!S.confused[c.id]) S.confused[c.id]=today(); save(); renderCard(); const h=document.getElementById('help'); if(h) h.scrollIntoView({behavior:'smooth',block:'center'}); };
   const cq=main.querySelector('#copyQ'); if(cq) cq.onclick=()=>copyText(askText(c,Q));
 }
+function renderMarked(c){
+  const t=c.text||'';
+  if(c.swap&&c.swap.pos>=0){ const p=c.swap.pos, f=c.swap.from; return esc(t.slice(0,p))+'<span class="red">'+esc(f)+'</span><span class="ins">'+esc(c.swap.to)+'</span>'+esc(t.slice(p+f.length)); }
+  if(c.key&&t.includes(c.key)){ const p=t.indexOf(c.key); return esc(t.slice(0,p))+'<span class="hl">'+esc(c.key)+'</span>'+esc(t.slice(p+c.key.length)); }
+  return markChoice(t,c.wrong);
+}
+function fixedText(c){ const t=c.text, p=c.swap.pos; return t.slice(0,p)+c.swap.to+t.slice(p+c.swap.from.length); }
 function ansLabel(c){
   if(c.mode==='calc') return c.ox;
   if(c.mode==='pick') return c.ox==='P'?'✔ 고른다':'✖ 안 고른다';
