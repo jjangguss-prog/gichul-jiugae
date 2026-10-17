@@ -75,6 +75,9 @@ details{margin-top:6px} summary{cursor:pointer;color:var(--acc);font-size:14px;f
 .exam .opt.right{border-color:var(--o);background:var(--o-bg)} .exam .opt.wrongsel{border-color:var(--x);background:var(--x-bg)}
 .sticky-bottom{position:sticky;bottom:calc(72px + env(safe-area-inset-bottom));background:var(--bg);padding:8px 0}
 textarea{width:100%;min-height:80px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px;font-size:13px}
+.tok{width:100%;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);padding:12px;font-size:16px;margin-top:6px}
+#syncdot{cursor:pointer} #syncdot.err{color:var(--x);font-weight:800}
+.card a{color:var(--acc);font-weight:700}
 .hide{display:none !important}
 .note{font-size:13px;color:var(--ink2);background:var(--bg);border-radius:10px;padding:8px 10px;margin-top:8px}
 .center{text-align:center}
@@ -180,7 +183,7 @@ a.btn{display:block;text-align:center;text-decoration:none}
 </head>
 <body>
 <header>
-  <div class="top"><h1 id="title">기출 지우개</h1><div class="sub" id="subtitle">불러오는 중</div></div>
+  <div class="top"><h1 id="title">기출 지우개</h1><div class="sub"><span id="subtitle">불러오는 중</span><span id="syncdot"></span></div></div>
   <div class="bar"><i id="bar"></i></div>
 </header>
 <main id="main"></main>
@@ -200,15 +203,187 @@ let S=load();            // 진행 상태
 const EXAM_DATE=new Date('2026-10-31T00:00:00+09:00');
 
 function load(){ try{ return JSON.parse(localStorage.getItem('jiugae')||'{}'); }catch(e){ return {}; } }
-function save(){ try{ localStorage.setItem('jiugae',JSON.stringify(S)); }catch(e){} }
+function save(){ stamp(); try{ localStorage.setItem('jiugae',JSON.stringify(S)); }catch(e){} }
 function today(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
 function daysLeft(){ return Math.max(0,Math.ceil((EXAM_DATE-new Date())/86400000)); }
-S.cards=S.cards||{};      // id -> {st:0새/1학습/2지움, k:근거까지 안 날짜들[], last:날짜, due:날짜, miss:틀린 수, seen:본 수}
-S.log=S.log||[];          // {d,subj,ok}
-S.exam=S.exam||{};        // round -> {answers:{}, score, date}
-S.minutes=S.minutes||60;
-S.daily=S.daily||{};      // date -> {new:0, rev:0, sec:0}
-S.confused=S.confused||{}; // id -> 처음 누른 날짜(이해 안 된 카드)
+function normalize(){
+  S.cards=S.cards||{};      // id -> {st:0새/1학습/2지움, k:근거까지 안 날짜들[], last:날짜, due:날짜, miss:틀린 수, seen:본 수}
+  S.log=S.log||[];          // {d,subj,ok,id,ts:시각,v:기기}
+  S.exam=S.exam||{};        // round -> {answers:{}, score, date}
+  S.minutes=S.minutes||60;
+  S.daily=S.daily||{};      // 이 기기의 date -> {new:0, rev:0, sec:0}
+  S.confused=S.confused||{}; // id -> 처음 누른 날짜(이해 안 된 카드)
+  S.book=S.book||{read:{},last:'',hide:false,subj:'civ'}; S.book.read=S.book.read||{};
+  S.ddo=S.ddo||{};          // 다른 기기의 daily (동기화로 받음)
+  S._epoch=S._epoch||0;     // '처음부터'·붙여넣어 불러오기를 누른 시각
+  if(!S._ts) S._ts=legacyTs(); // 동기화 단위 -> 바뀐 시각
+  S.log.forEach((l,i)=>{ if(!l.ts){ l.ts=dayMs(l.d)+i; l.v=DEV; } });
+}
+
+/* ===== 기기 간 동기화 =====
+   기록을 단위(카드 한 장, 실전 한 번, 개념서 섹션 하나, 설정 하나)로 나눠 바뀐 시각을 S._ts에 적고,
+   기기끼리 합칠 때 단위마다 더 늦게 바뀐 쪽을 쓴다. 하루 공부량은 기기마다 따로 쌓아 더하고, 판단 기록은 합집합.
+   저장소는 PD의 GitHub 비공개 gist(jiugae-sync.json). 토큰은 기록과 따로 이 기기에만 둔다(설정의 복사 글에 안 섞이게). */
+const DEV=(()=>{ try{ let d=localStorage.getItem('jiugae-dev'); if(!d){ d=Math.random().toString(36).slice(2,10); localStorage.setItem('jiugae-dev',d); } return d; }catch(e){ return 'tmp'; } })();
+const NOTUNIT=['cards','exam','confused','book','log','daily','ddo','dataver','notice','_ts','_epoch'];
+const UNIT_DEF={'p/minutes':'60','b/last':'""','b/hide':'false','b/subj':'"civ"'}; // 처음 값은 다른 기기 값에 진다
+let SNAP=null; // 지난 save() 때의 단위들
+function dayMs(d){ const x=Date.parse((d||'')+'T00:00:00+09:00'); return isNaN(x)?1:x; }
+function blankCard(s){ return !s||(!s.st&&!s.seen&&!s.miss&&!s.last&&!(s.k&&s.k.length)); }
+function units(st){
+  const u={}, J=JSON.stringify;
+  for(const [k,v] of Object.entries(st.cards||{})) if(!blankCard(v)) u['c/'+k]=J(v);
+  for(const [k,v] of Object.entries(st.exam||{})) u['x/'+k]=J(v);
+  for(const [k,v] of Object.entries(st.confused||{})) u['f/'+k]=J(v);
+  for(const [k,v] of Object.entries(st.book||{})){ if(k==='read'){ for(const [i,d] of Object.entries(v||{})) u['r/'+i]=J(d); } else u['b/'+k]=J(v); }
+  for(const [k,v] of Object.entries(st)) if(!NOTUNIT.includes(k)) u['p/'+k]=J(v);
+  return u;
+}
+function setUnit(key,json){
+  const p=key[0], k=key.slice(2);
+  const o=p==='c'?S.cards:p==='x'?S.exam:p==='f'?S.confused:p==='r'?S.book.read:p==='b'?S.book:S;
+  if(json===undefined) delete o[k]; else o[k]=JSON.parse(json);
+}
+// 동기화 전부터 있던 기록: 카드는 마지막 본 날짜(같은 날이면 본 수), 나머지는 적힌 날짜로 시각을 매긴다
+function legacyTs(){
+  const ts={};
+  for(const [key,j] of Object.entries(units(S))){
+    const v=JSON.parse(j), p=key[0];
+    ts[key]=p==='c'?(v.last?dayMs(v.last)+Math.min(v.seen||0,999):1)
+      :p==='x'?(v&&v.date?dayMs(v.date):1)
+      :(p==='f'||p==='r')&&typeof v==='string'?dayMs(v)
+      :UNIT_DEF[key]===j?0:1;
+  }
+  return ts;
+}
+// save() 때마다 지난 저장과 비교해 바뀐 단위에 지금 시각을 찍고, 새 판단 기록에 시각·기기를 붙인다
+function stamp(){
+  if(!SNAP) return;
+  const now=Date.now(), cur=units(S);
+  for(const k in cur) if(cur[k]!==SNAP[k]) S._ts[k]=now;
+  for(const k in SNAP) if(!(k in cur)) S._ts[k]=now;
+  let i=S.log.length; while(i>0&&!S.log[i-1].ts) i--;
+  for(let n=now;i<S.log.length;i++,n++){ S.log[i].ts=n; S.log[i].v=DEV; }
+  SNAP=cur; markDirty();
+}
+function allDaily(){
+  const o={};
+  for(const m of [S.daily,...Object.values(S.ddo)]) for(const [d,v] of Object.entries(m||{})){ const w=o[d]||(o[d]={new:0,rev:0,sec:0}); w.new+=v.new||0; w.rev+=v.rev||0; w.sec+=v.sec||0; }
+  return o;
+}
+function maxDaily(a,b){
+  const o=Object.assign({},a);
+  for(const [d,v] of Object.entries(b||{})){ const w=o[d]||{}; o[d]={new:Math.max(w.new||0,v.new||0),rev:Math.max(w.rev||0,v.rev||0),sec:Math.max(w.sec||0,v.sec||0)}; }
+  return o;
+}
+// 원격 기록 R을 S에 합친다. 바뀐 것이 있으면 true
+function mergeRemote(R){
+  const re=R.epoch||0;
+  if(re<S._epoch) return false; // 이 기기에서 '처음부터'·불러오기를 더 늦게 눌렀다: 원격은 덮어쓴다
+  if(re>S._epoch){              // 다른 기기에서 눌렀다: 그 기록을 통째로 받는다
+    const dv=S.dataver, dd=R.dd||{};
+    S=Object.assign({},R.s,{dataver:dv,_epoch:re,_ts:Object.assign({},R.ts),log:R.log||[],daily:dd[DEV]||{},ddo:{}});
+    for(const [d,m] of Object.entries(dd)) if(d!==DEV) S.ddo[d]=m;
+    normalize(); SNAP=units(S); return true;
+  }
+  let ch=false; const lu=units(S), ru=units(R.s||{}), rt=R.ts||{};
+  for(const key in rt){
+    if(rt[key]>(S._ts[key]||0)){ if(ru[key]!==lu[key]){ setUnit(key,ru[key]); ch=true; } S._ts[key]=rt[key]; }
+  }
+  for(const [d,m] of Object.entries(R.dd||{})){
+    if(d===DEV) continue;
+    const b=JSON.stringify(S.ddo[d]||{}); S.ddo[d]=maxDaily(S.ddo[d],m); if(JSON.stringify(S.ddo[d])!==b) ch=true;
+  }
+  const have=new Set(S.log.map(l=>l.v+'|'+l.ts)); let add=0;
+  for(const l of R.log||[]) if(l.ts&&!have.has(l.v+'|'+l.ts)){ S.log.push(l); add++; }
+  if(add){ S.log.sort((a,b)=>a.ts-b.ts); if(S.log.length>3000) S.log=S.log.slice(-3000); ch=true; }
+  SNAP=units(S);
+  return ch;
+}
+// 합친 뒤에도 원격에 없는 것이 이 기기에 남았나(그러면 올린다)
+function localAhead(R){
+  if((R.epoch||0)!==S._epoch) return true;
+  const rt=R.ts||{}; for(const k in S._ts) if(S._ts[k]>(rt[k]||0)) return true;
+  const rk=new Set((R.log||[]).map(l=>l.v+'|'+l.ts)); if(S.log.slice(-LOGN).some(l=>!rk.has(l.v+'|'+l.ts))) return true;
+  const dd=R.dd||{}; if(JSON.stringify(S.daily)!==JSON.stringify(dd[DEV]||{})) return true;
+  for(const [d,m] of Object.entries(S.ddo)) for(const [day,v] of Object.entries(m)){ const w=(dd[d]||{})[day]; if(!w||w.new<v.new||w.rev<v.rev||w.sec<v.sec) return true; }
+  return false;
+}
+let SY=(()=>{ try{ return JSON.parse(localStorage.getItem('jiugae-sync')||'{}'); }catch(e){ return {}; } })(); // {token, gist, last, err}
+function saveSY(){ try{ localStorage.setItem('jiugae-sync',JSON.stringify({token:SY.token,gist:SY.gist,last:SY.last,err:SY.err})); }catch(e){} }
+const GH='https://api.github.com', SFILE='jiugae-sync.json', LOGN=1000; // 판단 기록은 최근 1000개만 오간다(정확도는 과목별 최근 120개로 계산)
+let lastTag='', lastText=''; // 마지막으로 받거나 올린 gist의 ETag·내용: 안 바뀌었으면 다시 받지 않는다
+async function gh(path,opt){
+  opt=opt||{};
+  const r=await fetch(GH+path,{method:opt.method||'GET',cache:'no-store',
+    headers:Object.assign({Authorization:'Bearer '+SY.token,Accept:'application/vnd.github+json'},opt.body?{'Content-Type':'application/json'}:{},opt.headers||{}),
+    body:opt.body?JSON.stringify(opt.body):undefined});
+  if(!r.ok&&r.status!==304){ const e=new Error('GitHub '+r.status); e.status=r.status; throw e; }
+  return r;
+}
+async function ghFind(){
+  for(let p=1;p<=5;p++){ const L=await (await gh(`/gists?per_page=100&page=${p}`)).json(); const g=L.find(g=>g.files&&g.files[SFILE]); if(g) return g.id; if(L.length<100) break; }
+  return null;
+}
+async function ghRead(id){
+  const r=await gh('/gists/'+id,{headers:lastTag&&lastText?{'If-None-Match':lastTag}:{}});
+  if(r.status!==304){
+    const g=await r.json(), f=g.files&&g.files[SFILE]; if(!f) return null;
+    lastText=f.truncated?await fetch(f.raw_url,{cache:'no-store'}).then(x=>x.text()):f.content; lastTag=r.headers.get('ETag')||'';
+  }
+  return JSON.parse(lastText);
+}
+async function ghWrite(id,text){
+  const r=await gh(id?'/gists/'+id:'/gists',{method:id?'PATCH':'POST',body:id?{files:{[SFILE]:{content:text}}}:{description:'기출 지우개 공부 기록 (동기화용, 지우지 마세요)',public:false,files:{[SFILE]:{content:text}}}});
+  const g=await r.json(); lastText=text; lastTag=r.headers.get('ETag')||''; return g.id;
+}
+function payload(){
+  const s={};
+  for(const [k,v] of Object.entries(S)) if(!['log','daily','ddo','dataver','notice','_ts','_epoch'].includes(k)) s[k]=v;
+  s.cards={}; for(const [k,v] of Object.entries(S.cards)) if(!blankCard(v)) s.cards[k]=v;
+  return JSON.stringify({app:'jiugae',v:1,at:Date.now(),from:DEV,epoch:S._epoch,s,ts:S._ts,log:S.log.slice(-LOGN),dd:Object.assign({},S.ddo,{[DEV]:S.daily})});
+}
+let syncP=null, syncAgain=false, dirtyT=null;
+function markDirty(){ if(!SY.token||dirtyT) return; dirtyT=setTimeout(()=>{ dirtyT=null; syncNow(); },120000); }
+// 받아서 합치고, 이 기기에만 있는 게 있으면 올린다
+function syncNow(){
+  if(!SY.token||!D) return Promise.resolve();
+  if(syncP){ syncAgain=true; return syncP; }
+  clearTimeout(dirtyT); dirtyT=null; SY.busy=true; syncUI();
+  syncP=(async()=>{
+    if(!SY.gist){ SY.gist=await ghFind(); lastTag=lastText=''; }
+    let R=null;
+    if(SY.gist){ try{ R=await ghRead(SY.gist); }catch(e){ if(e.status!==404) throw e; SY.gist=null; lastTag=lastText=''; } }
+    const ch=R&&R.app==='jiugae'?mergeRemote(R):false;
+    if(ch){ try{ localStorage.setItem('jiugae',JSON.stringify(S)); }catch(e){} }
+    if(!SY.gist) SY.gist=await ghWrite(null,payload());
+    else if(!R||localAhead(R)) await ghWrite(SY.gist,payload());
+    SY.last=Date.now(); SY.err='';
+    if(ch) afterMerge();
+  })().catch(e=>{
+    SY.err=e.status===401?'토큰이 틀렸거나 만료됐습니다. 새 토큰으로 다시 연결하세요.'
+      :e.status===403||e.status===404?`GitHub가 거절했습니다(${e.status}). 토큰에 gist 권한이 있는지 확인하세요.`
+      :e.status===429?'GitHub가 잠시 막았습니다. 조금 뒤 저절로 다시 합니다.'
+      :e.status?'GitHub 오류 '+e.status:'인터넷이 안 됩니다. 연결되면 저절로 맞춥니다.';
+  }).finally(()=>{ SY.busy=false; saveSY(); syncP=null; syncUI(); if(syncAgain){ syncAgain=false; markDirty(); } });
+  return syncP;
+}
+function afterMerge(){ migrate(); if((view==='today'&&!session)||view==='stats'||view==='settings') render(); else header(); }
+function syncWhen(){ const t=new Date(SY.last); return (t.toDateString()===new Date().toDateString()?'오늘 ':`${t.getMonth()+1}/${t.getDate()} `)+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'); }
+function syncStatus(){ return SY.busy?'맞추는 중…':SY.err?`<span style="color:var(--x)">${esc(SY.err)}</span>`:SY.last?'마지막 동기화 '+syncWhen():'아직 안 맞춤'; }
+function syncUI(){
+  const el=document.getElementById('syncdot');
+  if(el){ el.textContent=!SY.token?'':SY.busy?' · ⟳':SY.err?' · ☁!':' · ☁'; el.className=SY.err?'err':''; el.title=SY.token?syncStatus().replace(/<[^>]+>/g,''):''; }
+  const st=document.getElementById('syncst'); if(st) st.innerHTML=syncStatus();
+}
+document.getElementById('syncdot').onclick=()=>{ if(SY.token) goView('settings'); };
+document.addEventListener('visibilitychange',()=>{
+  if(!SY.token||!D) return;
+  if(document.visibilityState==='hidden'){ if(dirtyT) syncNow(); }       // 다른 앱·기기로 넘어가기 전에 올린다
+  else if(Date.now()-(SY.last||0)>15000) syncNow();                         // 돌아오면 다른 기기 기록을 받는다
+});
+window.addEventListener('online',()=>{ if(SY.token&&D) syncNow(); });
+normalize(); SNAP=units(S);
 
 function cardState(id){ return S.cards[id]||(S.cards[id]={st:0,k:[],last:'',due:'',miss:0,seen:0}); }
 
@@ -251,7 +426,7 @@ function render(){ header(); window.scrollTo(0,0); ({today:renderToday, book:ren
 /* ===== 오늘 ===== */
 function renderToday(){
   if(session){ renderCard(); return; }
-  const info=buildQueue(); const t=today(); const d=S.daily[t];
+  const info=buildQueue(); const t=today(); const d=allDaily()[t];
   const acc=accuracy();
   const notice=S.notice; if(notice){ delete S.notice; save(); }
   main.innerHTML=`${notice?`<div class="card note" style="margin-top:0">${esc(notice)}</div>`:''}
@@ -538,7 +713,7 @@ function renderStats(){
   const total=D.cards.length; const sts=D.cards.map(c=>cardState(c.id).st);
   const del=sts.filter(s=>s===2).length, learn=sts.filter(s=>s===1).length, fresh=sts.filter(s=>s===0).length;
   const acc=accuracy();
-  const days=Object.entries(S.daily).sort().slice(-14);
+  const days=Object.entries(allDaily()).sort().slice(-14);
   const byGrade={}; for(const c of D.cards){ const g=D.questions[c.q].grade; byGrade[g]=byGrade[g]||{t:0,d:0}; byGrade[g].t++; if(cardState(c.id).st===2) byGrade[g].d++; }
   main.innerHTML=`<div class="card"><b>카드 현황</b>
     <div class="stat"><div><b>${fresh}</b><span>안 본 카드</span></div><div><b>${learn}</b><span>배우는 중</span></div><div><b>${del}</b><span>지움</span></div></div>
@@ -563,16 +738,45 @@ function renderStats(){
 
 /* ===== 설정 ===== */
 function renderSettings(){
-  main.innerHTML=`<div class="card"><b>진행 상태 옮기기</b><p class="muted" style="margin:4px 0">기록은 이 기기 안에만 저장됩니다. 다른 기기로 옮기려면 아래 글을 복사해 붙여 넣으세요.</p>
+  main.innerHTML=`${SY.token?`<div class="card"><b>기기 간 동기화</b> <span class="tag" style="background:var(--o-bg);color:var(--o)">연결됨</span>
+    <p style="margin:6px 0 2px;font-size:15px" id="syncst">${syncStatus()}</p>
+    <p class="muted" style="margin:4px 0;font-size:14px">앱을 열 때, 공부하는 동안 2분마다, 다른 앱으로 넘어가거나 화면을 끌 때 저절로 맞춥니다. 위쪽 ☁ 표시가 동기화 상태입니다.</p>
+    <div class="btns" style="margin-top:8px"><button class="btn n small" id="syNow">지금 맞추기</button><button class="btn ghost small" id="syCopy">다른 기기용 토큰 복사</button></div>
+    <div class="btns" style="margin-top:8px"><button class="btn ghost small" id="syOff">이 기기 연결 끊기</button></div></div>`
+  :`<div class="card"><b>기기 간 동기화</b>
+    <p class="muted" style="margin:4px 0">폰·PC·태블릿 어디서 열어도 기록이 이어지게, 기록을 PD의 GitHub 계정에 비공개 gist(메모 파일)로 저장합니다. 기기마다 한 번만 연결하면 됩니다.</p>
+    <ol style="padding-left:18px;margin:6px 0;font-size:15px">
+      <li><a href="https://github.com/settings/tokens/new?scopes=gist&description=${encodeURIComponent('기출 지우개 동기화')}" target="_blank" rel="noopener">GitHub 토큰 만들기</a>를 엽니다(GitHub 로그인). <b>gist</b>에만 체크된 채로 Expiration을 <b>90 days</b>로 바꾸고 맨 아래 <b>Generate token</b>.</li>
+      <li>나온 <b>ghp_</b>로 시작하는 글을 복사해 아래 칸에 붙여 넣고 <b>연결</b>.</li>
+      <li>다른 기기에서도 같은 토큰을 붙여 넣습니다. GitHub는 토큰을 한 번만 보여 주니, 연결한 뒤 이 화면의 '다른 기기용 토큰 복사'로 꺼내 쓰세요.</li>
+    </ol>
+    <input class="tok" id="syTok" type="password" placeholder="ghp_로 시작하는 토큰" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="btns" style="margin-top:8px"><button class="btn n small" id="syGo">연결</button></div>
+    <p class="muted" style="margin:8px 0 0;font-size:13px">다른 기기에서 이미 올린 기록이 있으면 이 기기 기록과 카드마다 더 최근 것을 골라 합칩니다. 어느 쪽 기록도 버리지 않습니다.</p></div>`}
+  <div class="card"><b>진행 상태 옮기기 (손으로)</b><p class="muted" style="margin:4px 0">동기화를 안 쓸 때의 예비 방법입니다. 아래 글을 복사해 다른 기기에서 붙여 넣으면 그 기기 기록이 이것으로 바뀝니다${SY.token?'(동기화 중이면 다른 기기 기록도 모두 이것으로 바뀝니다)':''}.</p>
     <textarea id="dump" readonly>${esc(JSON.stringify(S))}</textarea>
     <div class="btns" style="margin-top:8px"><button class="btn ghost small" id="copy">복사</button><button class="btn ghost small" id="paste">붙여넣어 불러오기</button></div></div>
   <div class="card"><b>하루 시간</b><div class="btns" style="margin-top:8px">${[15,30,45,60].map(m=>`<button class="btn ${S.minutes===m?'n':'ghost'} small" data-m="${m}">${m}분</button>`).join('')}</div></div>
-  <div class="card"><b>처음부터</b><p class="muted">모든 기록을 지웁니다. 되돌릴 수 없습니다.</p><div class="btns"><button class="btn x small" id="reset">기록 전부 지우기</button></div></div>
+  <div class="card"><b>처음부터</b><p class="muted">모든 기록을 지웁니다. 되돌릴 수 없습니다.${SY.token?' 동기화 중이라 다른 기기 기록도 함께 지워집니다.':''}</p><div class="btns"><button class="btn x small" id="reset">기록 전부 지우기</button></div></div>
   <div class="card muted" style="font-size:13px">문제: 한국산업인력공단 큐넷 공개 기출문제(공공누리 출처표시). 36회 문제 그림은 큐넷 PDF가 그림이라 전자문제집 CBT(comcbt.com) 학생용 판에서 잘랐다. 정답: 큐넷 기출을 두 출처로 대조. 선지 근거: 이 앱을 위해 직접 작성한 것으로, 틀린 곳이 있으면 PD가 '문제 전체 보기'로 원문을 확인하세요. 카드 ${D.summary.total}장.</div>`;
   main.querySelector('#copy').onclick=()=>{ const ta=main.querySelector('#dump'); ta.select(); try{ navigator.clipboard.writeText(ta.value); alert('복사했습니다'); }catch(e){ document.execCommand('copy'); } };
-  main.querySelector('#paste').onclick=()=>{ const v=prompt('복사해 둔 글을 붙여 넣으세요'); if(!v) return; try{ const o=JSON.parse(v); if(!o.cards) throw 0; S=o; save(); alert('불러왔습니다'); render(); }catch(e){ alert('형식이 맞지 않습니다'); } };
+  main.querySelector('#paste').onclick=()=>{ const v=prompt('복사해 둔 글을 붙여 넣으세요'); if(!v) return; try{ const o=JSON.parse(v); if(!o.cards) throw 0; S=o; S._epoch=Date.now(); normalize(); SNAP=units(S); save(); syncNow(); alert('불러왔습니다'); render(); }catch(e){ alert('형식이 맞지 않습니다'); } };
   main.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ S.minutes=+b.dataset.m; save(); renderSettings(); });
-  main.querySelector('#reset').onclick=()=>{ if(confirm('정말 전부 지울까요?')&&confirm('한 번 더: 모든 카드 기록이 사라집니다.')){ S={cards:{},log:[],exam:{},minutes:60,daily:{}}; save(); render(); } };
+  main.querySelector('#reset').onclick=()=>{ if(confirm('정말 전부 지울까요?')&&confirm('한 번 더: 모든 카드 기록이 사라집니다.')){ S={cards:{},log:[],exam:{},minutes:60,daily:{},_epoch:Date.now(),_ts:{}}; normalize(); SNAP=units(S); save(); syncNow(); render(); } };
+  const q=s=>main.querySelector(s);
+  if(q('#syGo')) q('#syGo').onclick=async()=>{
+    const tok=q('#syTok').value.trim(); if(!tok){ alert('토큰을 붙여 넣으세요'); return; }
+    const b=q('#syGo'); b.disabled=true; b.textContent='확인하는 중…';
+    SY={token:tok};
+    lastTag=lastText='';
+    try{ await gh('/gists?per_page=1'); }
+    catch(e){ SY={}; b.disabled=false; b.textContent='연결'; alert(e.status===401?'토큰이 맞지 않습니다. 다시 복사해 붙여 넣으세요.':e.status?`GitHub가 거절했습니다(${e.status}). gist에 체크해서 토큰을 다시 만드세요.`:'GitHub에 닿지 못했습니다. 인터넷을 확인하세요.'); return; }
+    saveSY(); await syncNow(); if(view==='settings') renderSettings();
+    alert(SY.err||'연결했습니다. 다른 기기에서도 같은 토큰으로 연결하세요.');
+  };
+  if(q('#syNow')) q('#syNow').onclick=()=>syncNow();
+  if(q('#syCopy')) q('#syCopy').onclick=()=>{ const ok=()=>alert('토큰을 복사했습니다. 다른 기기의 설정 → 기기 간 동기화에 붙여 넣으세요. 남에게는 보내지 마세요.'); try{ navigator.clipboard.writeText(SY.token).then(ok,()=>prompt('길게 눌러 복사하세요',SY.token)); }catch(e){ prompt('길게 눌러 복사하세요',SY.token); } };
+  if(q('#syOff')) q('#syOff').onclick=()=>{ if(confirm('이 기기의 동기화를 끕니다. 이 기기 기록은 그대로 남고, GitHub에 올린 기록도 지우지 않습니다.')){ clearTimeout(dirtyT); dirtyT=null; SY={}; saveSY(); syncUI(); renderSettings(); } };
 }
 
 /* ===== 개념서 ===== */
@@ -741,14 +945,15 @@ function renderMemos(){
 /* ===== 시작 ===== */
 function migrate(){
   let n=0; const t=today(); const byId={}; D.cards.forEach(c=>byId[c.id]=c);
-  const restart=id=>{ const st=S.cards[id]; if(!st||st.st===0) return; S.cards[id]={st:1,k:[],last:st.last,due:t,miss:st.miss||0,seen:st.seen||0}; n++; };
+  // 다시 시작해도 바뀐 시각은 그대로 둔다: 다른 기기가 새 카드로 공부한 기록이 있으면 그쪽이 이기게
+  const restart=id=>{ const st=S.cards[id]; if(!st||st.st===0) return; S.cards[id]={st:1,k:[],last:st.last,due:t,miss:st.miss||0,seen:st.seen||0}; if(SNAP) SNAP['c/'+id]=JSON.stringify(S.cards[id]); n++; };
   if(D.version&&S.dataver!==D.version){ (D.reset||[]).forEach(restart); }
   for(const [id,st] of Object.entries(S.cards)){ const c=byId[id]; if(c&&st.a&&st.a!==c.mode+':'+c.ox) restart(id); }
   if(D.version) S.dataver=D.version;
   if(n){ S.notice=`카드 ${n}장의 질문 방식이나 정답이 바뀌어 그 카드만 기록을 다시 시작합니다.`; }
   save();
 }
-fetch('cards.json?v='+Date.now()).then(r=>r.json()).then(d=>{ D=d; migrate(); render(); loadBook().then(()=>{ if(view==='today'&&!session) renderToday(); }).catch(()=>{}); }).catch(e=>{ main.innerHTML='<div class="card">카드 자료(cards.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
+fetch('cards.json?v='+Date.now()).then(r=>r.json()).then(d=>{ D=d; migrate(); render(); syncUI(); syncNow(); loadBook().then(()=>{ if(view==='today'&&!session) renderToday(); }).catch(()=>{}); }).catch(e=>{ main.innerHTML='<div class="card">카드 자료(cards.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 </script>
 </body>
