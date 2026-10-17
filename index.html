@@ -78,6 +78,11 @@ textarea{width:100%;min-height:80px;border-radius:10px;border:1px solid var(--li
 .note{font-size:13px;color:var(--ink2);background:var(--bg);border-radius:10px;padding:8px 10px;margin-top:8px}
 .center{text-align:center}
 h2{font-size:17px;margin:14px 0 8px}
+.ask{margin:12px 0 2px;font-size:15px;padding:8px 10px;border-radius:10px}
+.ask span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.ask.truth{background:var(--o-bg)} .ask.pick{background:var(--acc-bg)}
+a.btn{display:block;text-align:center;text-decoration:none}
+.card.help{border-color:var(--acc)} .card.easy{border-color:var(--o)}
 </style>
 </head>
 <body>
@@ -109,6 +114,7 @@ S.log=S.log||[];          // {d,subj,ok}
 S.exam=S.exam||{};        // round -> {answers:{}, score, date}
 S.minutes=S.minutes||60;
 S.daily=S.daily||{};      // date -> {new:0, rev:0, sec:0}
+S.confused=S.confused||{}; // id -> 처음 누른 날짜(이해 안 된 카드)
 
 function cardState(id){ return S.cards[id]||(S.cards[id]={st:0,k:[],last:'',due:'',miss:0,seen:0}); }
 
@@ -152,7 +158,8 @@ function renderToday(){
   if(session){ renderCard(); return; }
   const info=buildQueue(); const t=today(); const d=S.daily[t];
   const acc=accuracy();
-  main.innerHTML=`
+  const notice=S.notice; if(notice){ delete S.notice; save(); }
+  main.innerHTML=`${notice?`<div class="card note" style="margin-top:0">${esc(notice)}</div>`:''}
   <div class="card">
     <div class="row"><b style="font-size:20px">오늘 ${S.minutes}분</b><span class="muted">${t}</span></div>
     <div class="stat">
@@ -179,8 +186,9 @@ function renderToday(){
   <div class="card">
     <b>하는 법</b>
     <ol style="padding-left:18px;margin:6px 0;font-size:15px">
-      <li>선지를 읽고 <b>O</b>인지 <b>X</b>인지 누른다.</li>
-      <li>근거를 읽는다. 이해 안 되면 그냥 넘어간다(수십 번 보면 저절로 된다).</li>
+      <li><b>옳은 말 카드</b>: 문장이 맞으면 <b>O</b>, 틀리면 <b>X</b>. 발문이 '틀린 것은?'이어도 문장 자체만 본다.</li>
+      <li><b>고르기 카드</b>(해당하는 것·아닌 것을 묻는 문제): 발문대로 이 보기를 <b>고르나 / 안 고르나</b>.</li>
+      <li>근거를 읽는다. 이해 안 되면 🤔 버튼을 누르고 넘어간다(내일 다시 나온다).</li>
       <li>맞혔으면 "근거까지 알았다 / 답만 맞혔다"를 솔직하게 고른다.</li>
       <li>'근거까지'가 <b>다른 날 두 번</b> 쌓이면 지울지 묻는다. 지우는 건 PD가 누른다.</li>
       <li>지운 카드는 하루 3장씩 몰래 다시 나온다. 틀리면 되살아난다.</li>
@@ -237,16 +245,24 @@ function renderCard(){
       html+=`<div class="btns">${Q.choices.map((t,i)=>`<button class="btn n" style="padding:14px 4px" data-p="${CIRC[i]}">${CIRC[i]}</button>`).join('')}</div>
       <p class="muted center" style="margin:10px 0 0">계산문제. 식이 안 떠오르면 아무거나 누르고 풀이를 읽으세요</p></div>`;
     }
-  } else {
-    html+=`<div class="choice" id="choice">${c.n} ${s.phase==='ask'?esc(c.text):markChoice(c.text,c.wrong)}</div>`;
+  } else if(c.mode==='pick'){
+    html+=`<div class="ask pick">이 보기를 <b>고르나요?</b><span>발문 「${esc(Q.question)}」에 맞으면 고릅니다</span></div>
+    <div class="choice" id="choice">${c.n} ${esc(c.text)}</div>`;
     if(s.phase==='ask'){
-      html+=`<div class="btns"><button class="btn o" data-p="O">O 옳다</button><button class="btn x" data-p="X">X 틀리다</button></div>
+      html+=`<div class="btns"><button class="btn n" data-p="P">✔ 고른다</button><button class="btn g" data-p="N">✖ 안 고른다</button></div>
+      <p class="muted center" style="margin:10px 0 0">고르기 카드는 O/X가 아니라 '고르나'를 묻습니다</p></div>`;
+    }
+  } else {
+    html+=`<div class="ask truth">이 문장은 <b>옳은 말인가요?</b><span>발문이 옳은 것을 묻든 틀린 것을 묻든, 문장 자체가 맞는지만 봅니다</span></div>
+    <div class="choice" id="choice">${c.n} ${s.phase==='ask'?esc(c.text):markChoice(c.text,c.wrong)}</div>`;
+    if(s.phase==='ask'){
+      html+=`<div class="btns"><button class="btn o" data-p="O">O 옳은 말</button><button class="btn x" data-p="X">X 틀린 말</button></div>
       <p class="muted center" style="margin:10px 0 0">모르겠으면 아무거나 누르고 근거를 읽으세요</p></div>`;
     }
   }
   if(s.phase!=='ask'){
     const ok=s.pick===c.ox;
-    html+=`<div class="verdict ${ok?'ok':'bad'}">${ok?'맞음':'틀림'} · 정답은 ${c.kind==='calc'?c.ox:(c.ox==='O'?'O 옳은 선지':'X 틀린 선지')}</div>
+    html+=`<div class="verdict ${ok?'ok':'bad'}">${ok?'맞음':'틀림'} · 정답은 ${ansLabel(c)}</div>
       ${c.ox==='X'&&c.fix?`<div class="fix">바로잡기: ${esc(c.fix)}</div>`:''}
       <div class="reason">${c.reason?esc(c.reason):'<span class="muted">근거 준비 중. 정답 여부만 확인하세요.</span>'}</div>
       ${c.law?`<div class="law">${esc(c.law)}</div>`:''}
@@ -256,25 +272,48 @@ function renderCard(){
       ${Q.revision?`<div class="note">법 개정 주의: ${esc(Q.revision)}</div>`:''}
       <details><summary>문제 전체 보기</summary><div class="note">${esc(Q.question)}${Q.passage&&Q.passage.length?'\n'+esc(Q.passage.join('\n')):''}<br>${Q.choices.map((t,i)=>`${CIRC[i]} ${esc(t)}`).join('<br>')}<br><b>정답 ${Q.all_correct?'모두 정답(이의신청으로 전항정답 처리)':CIRC[Q.answer-1]}</b></div></details>
     </div>
+    ${c.easy?`<div class="card easy"><b>쉬운 설명</b><div class="reason">${esc(c.easy)}</div></div>`:''}
+    <div class="card help ${s.confused?'':'hide'}" id="help">
+      <b>괜찮습니다. PD 공부법대로 일단 넘어갑니다.</b>
+      <p class="muted" style="margin:4px 0 8px">이 카드는 '이해 안 된 카드'에 모였습니다. 내일 다시 나오고, 지우기 대상에서 빠집니다.</p>
+      <div class="btns"><a class="btn n small" id="askClaude" target="_blank" rel="noopener" href="${claudeUrl(c,Q)}">Claude에게 쉽게 물어보기</a><button class="btn ghost small" id="copyQ">질문 복사</button></div>
+      <p class="muted" style="margin:8px 0 0;font-size:13px">현황 탭의 '이해 안 된 카드 목록 복사'를 Claude Code에 붙여 넣으면 쉬운 설명을 카드에 붙여 다시 올립니다.</p>
+    </div>
     <div class="card">
-      <b>${ok?'맞혔습니다. 솔직하게 고르세요.':'다음에 다시 나옵니다.'}</b>
+      <b>${s.confused?'오늘은 여기까지 이해해도 됩니다.':ok?'맞혔습니다. 솔직하게 고르세요.':'다음에 다시 나옵니다.'}</b>
+      ${s.confused?`<div class="btns" style="margin-top:8px"><button class="btn n small" data-r="cf">다음 (내일 다시 보기)</button></div>`:`
       <div class="btns" style="margin-top:8px">
         ${ok?`<button class="btn o small" data-r="k">근거까지 알았다</button><button class="btn n small" data-r="a">답만 맞혔다</button>`:`<button class="btn n small" data-r="m">다음</button>`}
       </div>
+      <div class="btns" style="margin-top:8px"><button class="btn ghost small" id="confused">🤔 해설을 봐도 이해가 안 돼요</button></div>
       ${(ok&&st.k.length>=1&&st.k[st.k.length-1]!==today()&&!isAudit)?`<div class="btns" style="margin-top:8px"><button class="btn g small" data-r="del">✂ 이건 확실하다, 지우기</button></div>`:''}
-      ${(!isAudit&&!(ok&&st.k.length>=1&&st.k[st.k.length-1]!==today()))?`<div class="btns" style="margin-top:8px"><button class="btn ghost small" data-r="del">✂ 그래도 확실하다, 지우기</button></div>`:''}
+      ${(!isAudit&&!(ok&&st.k.length>=1&&st.k[st.k.length-1]!==today()))?`<div class="btns" style="margin-top:8px"><button class="btn ghost small" data-r="del">✂ 그래도 확실하다, 지우기</button></div>`:''}`}
     </div>`;
   }
   main.innerHTML=html;
   main.querySelector('#quit').onclick=()=>{ if(confirm('여기서 그만할까요? 본 것은 저장됩니다.')) endSession(); };
   main.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ s.pick=b.dataset.p; s.phase='show'; judge(c, s.pick===c.ox); renderCard(); });
-  main.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ afterCard(c, b.dataset.r); s.i++; s.phase='ask'; s.pick=null; renderCard(); });
+  main.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ afterCard(c, b.dataset.r); s.i++; s.phase='ask'; s.pick=null; s.confused=false; renderCard(); });
+  const cb=main.querySelector('#confused'); if(cb) cb.onclick=()=>{ s.confused=true; if(!S.confused[c.id]) S.confused[c.id]=today(); save(); renderCard(); const h=document.getElementById('help'); if(h) h.scrollIntoView({behavior:'smooth',block:'center'}); };
+  const cq=main.querySelector('#copyQ'); if(cq) cq.onclick=()=>copyText(askText(c,Q));
 }
+function ansLabel(c){
+  if(c.mode==='calc') return c.ox;
+  if(c.mode==='pick') return c.ox==='P'?'✔ 고른다':'✖ 안 고른다';
+  return c.ox==='O'?'O 옳은 말':'X 틀린 말';
+}
+function askText(c,Q){
+  const pas=(Q.passage||[]).join(' / ').slice(0,1200);
+  return `공인중개사 1차 기출을 공부하는데 아래 해설을 봐도 이해가 안 돼.\n중학생도 알아듣게 쉬운 말과 생활 예시로 5줄 안에 설명해 줘. 법률 용어는 괄호로 풀어 줘. 마지막 줄에 외울 한 문장을 줘.\n\n[문제] 제${Q.round}회 ${Q.no}번 ${Q.question}\n${pas?'[조건·보기] '+pas+'\n':''}[카드] ${c.n} ${c.mode==='calc'?'':c.text}\n[정답] ${ansLabel(c)}\n[해설] ${c.reason||''}${c.law?'\n[근거] '+c.law:''}${Q.calc?'\n[풀이] '+Q.calc:''}`;
+}
+function claudeUrl(c,Q){ return 'https://claude.ai/new?q='+encodeURIComponent(askText(c,Q)); }
+function copyText(t){ try{ navigator.clipboard.writeText(t).then(()=>alert('복사했습니다. Claude 앱에 붙여 넣으세요.'),()=>fallbackCopy(t)); }catch(e){ fallbackCopy(t); } }
+function fallbackCopy(t){ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); alert('복사했습니다'); }catch(e){ prompt('아래 글을 길게 눌러 복사하세요', t); } ta.remove(); }
 function judge(c, ok){
   const Q=D.questions[c.q], st=cardState(c.id), t=today(); const d=S.daily[t]||(S.daily[t]={new:0,rev:0,sec:0});
   S.log.push({d:t, subj:Q.subject, ok, id:c.id}); if(S.log.length>3000) S.log=S.log.slice(-3000);
   if(st.st===0){ d.new++; } else { d.rev++; }
-  st.seen++; st.last=t;
+  st.seen++; st.last=t; st.a=c.mode+':'+c.ox;
   if(!ok){ st.miss++; st.k=[]; if(st.st===2){ st.st=1; } } // 지운 카드 검사에서 틀리면 되살림
   if(st.st===0) st.st=1;
   st.due=ok?addDays(t,1):t; // 맞으면 내일, 틀리면 오늘 다시(큐가 끝나면 내일)
@@ -285,6 +324,8 @@ function afterCard(c, r){
   const st=cardState(c.id), t=today();
   if(r==='k'){ if(!st.k.includes(t)) st.k.push(t); if(st.k.length>=2&&st.st!==2){ if(confirm('근거까지 두 번(다른 날) 알았습니다. 이 선지를 지울까요?\n지운 카드는 하루 3장씩 몰래 다시 나옵니다.')){ st.st=2; } } }
   if(r==='a'){ /* 답만 맞힘: 근거 기록 없음 */ }
+  if(r==='cf'){ st.k=[]; if(st.st===0) st.st=1; st.due=addDays(t,1); }
+  if(r==='k'&&S.confused[c.id]){ delete S.confused[c.id]; }
   if(r==='del'){ st.st=2; }
   save();
 }
@@ -349,8 +390,18 @@ function renderStats(){
   </div>
   <div class="card"><b>판단 정확도</b><div class="stat"><div><b>${acc.rea.acc}%</b><span>학개론 (${acc.rea.n}장)</span></div><div><b>${acc.civ.acc}%</b><span>민법 (${acc.civ.n}장)</span></div><div><b>${acc.avg}</b><span>예상 평균 점수</span></div></div>
   <p class="muted">예상 점수는 선지 정확도를 문항 단위로 보수적으로 바꾼 값입니다. 실전 탭 점수가 더 믿을 만합니다.</p></div>
+  <div class="card"><b>이해 안 된 카드</b> <span class="muted">${Object.keys(S.confused).length}장</span>
+    ${Object.keys(S.confused).length?`<div style="margin:6px 0;font-size:14px">${Object.keys(S.confused).map(id=>{ const c=D.cards.find(x=>x.id===id); if(!c) return ''; const Q=D.questions[c.q]; return `<div class="row" style="padding:3px 0;border-bottom:1px solid var(--line)"><span>${Q.round}회 ${Q.no}번 ${c.n} ${esc((c.mode==='calc'?Q.question:c.text).slice(0,28))}…</span></div>`; }).join('')}</div>
+    <div class="btns"><button class="btn n small" id="cfRun">이 카드만 다시 보기</button><button class="btn ghost small" id="cfCopy">목록 복사</button></div>
+    <div class="btns" style="margin-top:8px"><button class="btn ghost small" id="cfClear">목록 비우기</button></div>
+    <p class="muted" style="font-size:13px;margin:6px 0 0">'목록 복사'를 Claude Code에 붙여 넣으면 그 카드에 쉬운 설명을 붙여 다시 올립니다.</p>`:'<p class="muted">아직 없음. 카드 뒷면의 🤔 버튼을 누르면 여기 모입니다.</p>'}
+  </div>
   <div class="card"><b>최근 14일</b>${days.length?days.map(([d,v])=>`<div class="row" style="font-size:14px"><span>${d}</span><span class="muted">새 ${v.new} · 복습 ${v.rev} · ${Math.round(v.sec/60)}분</span></div>`).join(''):'<p class="muted">아직 기록 없음</p>'}</div>
   <div class="card"><b>실전 점수</b>${Object.keys(S.exam).length?Object.entries(S.exam).map(([k,v])=>`<div class="row" style="font-size:14px"><span>${k.replace('rea',' 학개론').replace('civ',' 민법')}</span><span>${v.score}점 (${v.date})</span></div>`).join(''):'<p class="muted">아직 없음</p>'}</div>`;
+  const ids=Object.keys(S.confused);
+  const r1=main.querySelector('#cfRun'); if(r1) r1.onclick=()=>{ const q=D.cards.filter(c=>ids.includes(c.id)); view='today'; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.v==='today')); startSession(q); };
+  const r2=main.querySelector('#cfCopy'); if(r2) r2.onclick=()=>{ copyText('기출 지우개 이해 안 된 카드 '+ids.length+'장 (쉬운 설명을 붙여 줘)\n'+ids.map(id=>{ const c=D.cards.find(x=>x.id===id); if(!c) return id; const Q=D.questions[c.q]; return `${id} | ${Q.round}회 ${Q.no}번 ${c.n} | ${(c.mode==='calc'?Q.question:c.text).slice(0,60)}`; }).join('\n')); };
+  const r3=main.querySelector('#cfClear'); if(r3) r3.onclick=()=>{ if(confirm('이해 안 된 카드 목록을 비울까요? 카드 자체는 그대로입니다.')){ S.confused={}; save(); renderStats(); } };
 }
 
 /* ===== 설정 ===== */
@@ -368,7 +419,16 @@ function renderSettings(){
 }
 
 /* ===== 시작 ===== */
-fetch('cards.json?v='+Date.now()).then(r=>r.json()).then(d=>{ D=d; render(); }).catch(e=>{ main.innerHTML='<div class="card">카드 자료(cards.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
+function migrate(){
+  let n=0; const t=today(); const byId={}; D.cards.forEach(c=>byId[c.id]=c);
+  const restart=id=>{ const st=S.cards[id]; if(!st||st.st===0) return; S.cards[id]={st:1,k:[],last:st.last,due:t,miss:st.miss||0,seen:st.seen||0}; n++; };
+  if(D.version&&S.dataver!==D.version){ (D.reset||[]).forEach(restart); }
+  for(const [id,st] of Object.entries(S.cards)){ const c=byId[id]; if(c&&st.a&&st.a!==c.mode+':'+c.ox) restart(id); }
+  if(D.version) S.dataver=D.version;
+  if(n){ S.notice=`카드 ${n}장의 질문 방식이나 정답이 바뀌어 그 카드만 기록을 다시 시작합니다.`; }
+  save();
+}
+fetch('cards.json?v='+Date.now()).then(r=>r.json()).then(d=>{ D=d; migrate(); render(); }).catch(e=>{ main.innerHTML='<div class="card">카드 자료(cards.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 </script>
 </body>
