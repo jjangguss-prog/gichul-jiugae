@@ -223,9 +223,8 @@ a.btn{display:block;text-align:center;text-decoration:none}
 .sbar .d,.leg .d::before{background:var(--o)} .sbar .s,.leg .s::before{background:var(--acc)}
 .leg{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
 .leg span::before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;background:var(--line)}
-.passes{display:grid;grid-template-columns:repeat(auto-fit,minmax(66px,1fr));gap:6px;margin:10px 0 0}
-.passes span{text-align:center;font-size:12.5px;padding:6px 0;border-radius:9px;background:var(--bg);color:var(--muted);font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
-.passes span i{display:block;height:4px;margin:4px 8px 0;border-radius:2px;background:linear-gradient(90deg,currentColor var(--f,0%),var(--line) var(--f,0%))}
+.passes{display:flex;gap:6px;margin:10px 0 0}
+.passes span{flex:1;text-align:center;font-size:12.5px;padding:6px 0;border-radius:9px;background:var(--bg);color:var(--muted);font-weight:800;font-variant-numeric:tabular-nums}
 .passes span.on{background:var(--acc-bg);color:var(--acc)} .passes span.ok{background:var(--o-bg);color:var(--o)}
 .prog .gr{font-size:12.5px;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
 .prog .pace{font-size:13.5px;color:var(--ink2);background:var(--bg);border-radius:10px;padding:7px 10px;margin-top:8px;line-height:1.55}
@@ -555,8 +554,8 @@ function renderToday(){
 function progressHtml(p){
   if(!p.live) return `<div class="card prog"><div class="big">✂ 전부 지웠습니다</div><p class="muted" style="margin:6px 0 0">지운 카드 검사만 하루 3장씩 나옵니다.</p></div>`;
   const w=x=>(100*x/p.total).toFixed(2)+'%', left=p.live-p.done;
-  // 회독 칸: 1회독부터 지금 회독 두 칸 뒤까지. 회독을 끝낼수록 칸이 하나씩 늘고, 칸 아래 막대가 그 회독 진행률만큼 찬다
-  const chips=Array.from({length:p.pass+2},(_,i)=>i+1).map(k=>{ const v=k<p.pass?100:p.at(k); return `<span class="${k<p.pass?'ok':k===p.pass?'on':''}" style="--f:${v.toFixed(1)}%">${k}회독 ${k<p.pass?'✓':pct(v)}<i></i></span>`; }).join('');
+  // 회독 칸: 지금 회독과 그다음 두 회독. 끝낸 회독은 빼고, 회독이 넘어가면 칸이 한 칸씩 밀린다(4·5·6회독 → 5·6·7회독)
+  const chips=[p.pass,p.pass+1,p.pass+2].map(k=>`<span class="${k===p.pass?'on':''}">${k}회독 ${pct(p.at(k))}</span>`).join('');
   const gr=['A','B','C'].filter(g=>p.byG[g]).map(g=>{ const G=p.byG[g]; return `${g}급 ${pct(100*(G.del+G.seen.filter(x=>x>=p.pass).length)/G.t)}`; }).join(' · ');
   return `<div class="card prog">
     <div class="hd"><span class="ps">전체 진도</span><span class="muted" style="font-size:12px">카드 ${p.total.toLocaleString()}장</span></div>
