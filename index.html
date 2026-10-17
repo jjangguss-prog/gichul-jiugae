@@ -93,6 +93,88 @@ a.btn{display:block;text-align:center;text-decoration:none}
 .box b{display:inline-block;margin-right:6px}
 .box.issue{background:var(--acc-bg)} .box.intent{background:var(--x-bg)}
 .note.pre{white-space:pre-wrap}
+/* ===== 개념서 ===== */
+.seg{display:flex;background:var(--line);border-radius:12px;padding:3px;gap:3px;margin-bottom:10px}
+.seg button{flex:1;border:0;background:transparent;padding:9px 10px;border-radius:9px;font-size:15px;font-weight:800;color:var(--ink2);cursor:pointer}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.search{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:11px 12px;font-size:16px;margin-bottom:10px}
+.cont{display:block;width:100%;text-align:left;border:0;background:var(--acc);color:#fff;border-radius:12px;padding:12px 14px;font-size:15px;font-weight:800;margin-bottom:10px;cursor:pointer}
+.cont span{display:block;font-size:12px;font-weight:600;opacity:.85}
+.linkbtn{border:0;background:transparent;color:var(--acc);font-weight:800;font-size:14px;cursor:pointer;padding:4px 0}
+.chap{padding:0;overflow:hidden}
+.chap>.hd{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--ink);padding:14px 16px;cursor:pointer}
+.chap>.hd b{font-size:16px}
+.chap>.hd .meta{font-size:12px;color:var(--muted);margin-top:3px}
+.chap .pbar{height:4px;background:var(--line);border-radius:2px;margin-top:8px;overflow:hidden}.chap .pbar i{display:block;height:100%;background:var(--o)}
+.chap .secs{border-top:1px solid var(--line);padding:2px 12px 6px}
+.chap .intro{font-size:14px;color:var(--ink2);padding:10px 4px 6px;line-height:1.6}
+.srow{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);padding:11px 4px;cursor:pointer;font-size:15px}
+.srow:last-child{border-bottom:0}
+.srow .t{flex:1;line-height:1.4}.srow .f{font-size:12px;color:var(--muted);white-space:nowrap}
+.srow.read .t{color:var(--muted)}.srow .ck{color:var(--o);font-weight:900;width:14px}
+.reader .crumb{font-size:13px;color:var(--muted);margin:2px 0 4px}
+.reader h2.st{font-size:22px;margin:4px 0 6px;line-height:1.35}
+.reader .lawl{font-size:13px;color:var(--muted);margin-bottom:6px}
+.one{background:var(--acc-bg);border-radius:12px;padding:12px 14px;font-size:16.5px;font-weight:700;line-height:1.6;margin:12px 0}
+.one small{display:block;font-size:12px;color:var(--acc);font-weight:800;margin-bottom:2px}
+.concept{list-style:none;padding:0;margin:6px 0}
+.concept li{position:relative;padding:7px 0 7px 14px;line-height:1.7;font-size:16px;border-bottom:1px dashed var(--line)}
+.concept li:last-child{border-bottom:0}
+.concept li::before{content:'';position:absolute;left:1px;top:17px;width:5px;height:5px;border-radius:50%;background:var(--acc)}
+.concept li.sub{padding-left:28px;font-size:15px;color:var(--ink2);border-bottom:0;padding-top:2px}
+.concept li.sub::before{left:16px;top:12px;background:var(--muted)}
+.tw{overflow-x:auto;margin:12px 0;-webkit-overflow-scrolling:touch}
+.tw table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.5}
+.tw caption{caption-side:top;text-align:left;font-weight:800;font-size:14px;padding:0 0 6px;color:var(--ink)}
+.tw th,.tw td{border:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top;min-width:64px}
+.tw th{background:var(--bg);font-weight:800;font-size:13px}
+.tw td:first-child{font-weight:700}
+.sech{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:18px 0 4px}
+.sech h3{font-size:16px;margin:0}
+.chipbtn{border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.chipbtn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.oxl{list-style:none;padding:0;margin:4px 0}
+.oxi{padding:11px 0;border-bottom:1px solid var(--line);cursor:default}
+.oxi .h{display:flex;gap:10px;align-items:flex-start}
+.oxb{flex:0 0 auto;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#fff;margin-top:1px}
+.oxb.O{background:var(--o)}.oxb.X{background:var(--x)}.oxb.q{background:var(--line);color:var(--ink2)}
+.oxi .tx{flex:1;font-size:15.5px;line-height:1.65}
+.oxi .rd{display:inline-block;font-size:12px;color:var(--muted);font-weight:800;margin-right:5px}
+.oxi .re{font-size:11px;color:var(--muted);margin-left:4px}
+.oxi .more{margin:6px 0 0 38px}
+.oxi .fx{font-size:15px;background:var(--o-bg);color:var(--ink);padding:6px 10px;border-radius:8px;line-height:1.6}
+.oxi .fx ins{text-decoration:none;color:var(--o);font-weight:900}
+.oxi del{color:var(--x);text-decoration:line-through;text-decoration-thickness:2px}
+.oxi .wy{font-size:14px;color:var(--ink2);margin-top:5px;line-height:1.6}
+.oxi .nw{font-size:13px;background:var(--warn-bg);color:var(--warn);padding:4px 8px;border-radius:6px;margin-top:5px}
+.oxi .al{font-size:12px;color:var(--muted);margin-top:4px}
+.hideans .oxi{cursor:pointer}
+.hideans .oxi:not(.open) .oxb{background:var(--line);color:var(--line)}
+.hideans .oxi:not(.open) .more{display:none}
+.dot{display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;margin-left:4px;font-weight:800;vertical-align:1px}
+.dot.del{background:var(--line);color:var(--ink2)}.dot.miss{background:var(--x-bg);color:var(--x)}.dot.ok{background:var(--o-bg);color:var(--o)}
+.trapbox{background:var(--warn-bg);border-radius:12px;padding:10px 14px;margin:14px 0}
+.trapbox b{display:block;color:var(--warn);font-size:14px;margin-bottom:4px}
+.trapbox li{font-size:15px;line-height:1.6;margin:3px 0}
+.memo{background:#fff3a3;color:#1a1a00;border-radius:12px;padding:12px 14px;font-weight:800;margin:14px 0;line-height:1.6;font-size:16px}
+.memo small{display:block;font-size:12px;opacity:.7;margin-bottom:2px}
+@media (prefers-color-scheme: dark){ .memo{background:#463d0c;color:#fff4bf} }
+.warnbox{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px;font-size:14px;margin:10px 0}
+.calcb{border:1.5px solid var(--acc);border-radius:12px;padding:10px 14px;margin:12px 0}
+.calcb .nm{font-weight:800;font-size:15px}
+.calcb .fm{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--bg);padding:8px 10px;border-radius:8px;font-size:14.5px;font-weight:700;white-space:pre-wrap;margin:6px 0;line-height:1.55}
+.calcb ol{padding-left:20px;margin:6px 0;font-size:15px;line-height:1.6}
+.calcb .ct{font-size:14px;color:var(--x);margin-top:4px}
+.calcb .ex{font-size:12px;color:var(--muted)}
+.backbar{display:flex;gap:8px;margin-bottom:10px}
+.pn{display:flex;gap:8px;margin-top:12px}
+.pn button{flex:1;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:13px;cursor:pointer;line-height:1.4}
+.pn button span{display:block;font-size:11px;color:var(--muted)}
+.pn button.nx{text-align:right}
+.qref{font-size:14px;padding:5px 0;border-bottom:1px solid var(--line);line-height:1.5}
+.hit{font-size:13px;color:var(--ink2);margin-top:2px}
+.hit mark{background:#fff3a3;color:#000;border-radius:2px}
+.bookbtn{display:block;width:100%;text-align:left;border:1.5px solid var(--acc);background:var(--acc-bg);color:var(--acc);border-radius:12px;padding:10px 12px;font-size:14px;font-weight:800;margin-top:10px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -103,6 +185,7 @@ a.btn{display:block;text-align:center;text-decoration:none}
 <main id="main"></main>
 <nav class="tabs">
   <button data-v="today" class="on"><b>▶</b>오늘</button>
+  <button data-v="book"><b>▤</b>개념</button>
   <button data-v="concepts"><b>☰</b>논점</button>
   <button data-v="exam"><b>✎</b>실전</button>
   <button data-v="stats"><b>▦</b>현황</button>
@@ -154,14 +237,15 @@ function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.rand
 /* ===== 화면 공통 ===== */
 const main=document.getElementById('main');
 let view='today', session=null;
-document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{ view=b.dataset.v; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{ if(b.dataset.v==='book'&&view==='book'){ bk.sec=null; bk.memo=false; bk.from=null; } view=b.dataset.v; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
+function goView(v){ view=v; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.v===v)); render(); }
 function esc(s){ return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
 function header(){
   const total=D.cards.length, del=Object.values(S.cards).filter(s=>s.st===2).length;
   document.getElementById('subtitle').textContent=`D-${daysLeft()} · 남은 카드 ${total-del} / 지운 카드 ${del}`;
   document.getElementById('bar').style.width=(100*del/total).toFixed(1)+'%';
 }
-function render(){ header(); ({today:renderToday, concepts:renderConcepts, exam:renderExam, stats:renderStats, settings:renderSettings})[view](); window.scrollTo(0,0); }
+function render(){ header(); window.scrollTo(0,0); ({today:renderToday, book:renderBook, concepts:renderConcepts, exam:renderExam, stats:renderStats, settings:renderSettings})[view](); }
 
 /* ===== 오늘 ===== */
 function renderToday(){
@@ -194,6 +278,7 @@ function renderToday(){
       <div><b>${acc.avg}</b><span>평균 (60 넘으면 합격권)</span></div>
     </div>
   </div>
+  ${weakHtml()}
   <div class="card">
     <b>하는 법</b>
     <ol style="padding-left:18px;margin:6px 0;font-size:15px">
@@ -203,11 +288,22 @@ function renderToday(){
       <li>맞혔으면 "근거까지 알았다 / 답만 맞혔다"를 솔직하게 고른다.</li>
       <li>'근거까지'가 <b>다른 날 두 번</b> 쌓이면 지울지 묻는다. 지우는 건 PD가 누른다.</li>
       <li>지운 카드는 하루 3장씩 몰래 다시 나온다. 틀리면 되살아난다.</li>
+      <li><b>개념</b> 탭은 기출 지문으로 쓴 개념서다. 카드 뒷면의 📖 버튼을 누르면 그 논점 섹션이 바로 열린다.</li>
     </ol>
   </div>`;
   main.querySelector('#start').onclick=()=>startSession(info.q);
   const pb=main.querySelector('#pilot'); if(pb) pb.onclick=()=>startSession(D.cards.filter(c=>D.pilot.includes(c.q)));
   main.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ S.minutes=+b.dataset.m; save(); render(); });
+  main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from=null; goView('book'); });
+  const tb=main.querySelector('#toBook'); if(tb) tb.onclick=()=>{ bk.sec=null; bk.memo=false; bk.from=null; goView('book'); };
+}
+// 카드에서 많이 틀린 논점을 개념서 섹션으로 묶어 보여 준다
+function weakHtml(){
+  if(!B||!D) return '';
+  const byQ={}; for(const c of D.cards){ const st=S.cards[c.id]; if(st&&st.miss>0&&st.st!==2) byQ[c.q]=(byQ[c.q]||0)+1; }
+  if(!Object.keys(byQ).length) return `<div class="card"><b>개념서</b><p class="muted" style="margin:4px 0 8px">카드를 넘기다 틀린 논점이 생기면 여기에 그 논점의 개념서 섹션이 뜹니다.</p><button class="bookbtn" style="margin-top:0" id="toBook">📖 개념서 목차 열기</button></div>`;
+  const rows=Object.values(B.sections).map(s=>({s,n:s.refs.reduce((a,q)=>a+(byQ[q]||0),0)})).filter(x=>x.n>0).sort((a,b)=>b.n-a.n||b.s.f10-a.s.f10).slice(0,3);
+  return `<div class="card"><b>틀린 카드가 많은 논점</b><p class="muted" style="margin:4px 0 0">카드만 넘기지 말고 개념서로 한 번 읽어 두세요.</p>${rows.map(x=>`<button class="bookbtn" data-book="${x.s.id}">📖 ${esc(x.s.title)} <span style="font-weight:600">· 틀린 카드 ${x.n}장</span></button>`).join('')}</div>`;
 }
 function accuracy(){
   const res={};
@@ -287,6 +383,7 @@ function renderCard(){
       ${Q.calc?`<details><summary>계산 풀이</summary><div class="calc">${esc(Q.calc)}</div></details>`:''}
       ${Q.tip?`<div class="tip">암기팁: ${esc(Q.tip)}</div>`:''}
       ${Q.revision?`<div class="note">법 개정 주의: ${esc(Q.revision)}</div>`:''}
+      ${bookLinks(c.q)}
       ${Q.related&&Q.related.length?`<details><summary>같은 논점 기출 ${Q.related.length}문항</summary><div class="note">${Q.related.map(x=>`${x.r}회 ${x.n}번 · ${esc(x.q)}`).join('<br>')}</div></details>`:''}
       <details><summary>문제 전체 보기</summary><div class="note">${esc(Q.question)}${Q.passage&&Q.passage.length?'\n'+esc(Q.passage.join('\n')):''}<br>${Q.choices.map((t,i)=>`${CIRC[i]} ${esc(t)}`).join('<br>')}<br><b>정답 ${Q.all_correct?'모두 정답(이의신청으로 전항정답 처리)':CIRC[Q.answer-1]}</b></div></details>
     </div>
@@ -314,6 +411,7 @@ function renderCard(){
   main.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ afterCard(c, b.dataset.r); s.i++; s.phase='ask'; s.pick=null; s.confused=false; renderCard(); });
   const cb=main.querySelector('#confused'); if(cb) cb.onclick=()=>{ s.confused=true; if(!S.confused[c.id]) S.confused[c.id]=today(); save(); renderCard(); const h=document.getElementById('help'); if(h) h.scrollIntoView({behavior:'smooth',block:'center'}); };
   const cq=main.querySelector('#copyQ'); if(cq) cq.onclick=()=>copyText(askText(c,Q));
+  main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from='card'; goView('book'); });
 }
 function renderMarked(c){
   const t=c.text||'';
@@ -443,6 +541,169 @@ function renderSettings(){
   main.querySelector('#reset').onclick=()=>{ if(confirm('정말 전부 지울까요?')&&confirm('한 번 더: 모든 카드 기록이 사라집니다.')){ S={cards:{},log:[],exam:{},minutes:60,daily:{}}; save(); render(); } };
 }
 
+/* ===== 개념서 ===== */
+let B=null, bookLoading=null, Q2S={};
+const bk={sec:null, from:null, q:'', memo:false, open:{}, tocY:0, wrong:false};
+function bookState(){ return S.book||(S.book={read:{},last:'',hide:false,subj:'civ'}); }
+function loadBook(){
+  if(B) return Promise.resolve(B);
+  if(!bookLoading) bookLoading=fetch('book.json?v='+Date.now()).then(r=>r.json()).then(d=>{ B=d; Q2S={}; for(const s of Object.values(B.sections)) for(const q of s.refs) (Q2S[q]=Q2S[q]||[]).push(s.id); return B; }).catch(e=>{ bookLoading=null; throw e; });
+  return bookLoading;
+}
+function md(t){ return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>'); }
+function rlabel(ref){ const p=ref.split('-'); return `${p[0]}회 ${p[1]}번`; }
+function subjSecs(subj){ const out=[]; for(const cid of B.subjects.find(x=>x.id===subj).chapters) out.push(...B.chapters[cid].sections); return out; }
+function freqLabel(s){ return `10년 ${s.f10}회${s.f5?` · 최근5년 ${s.f5}`:''}`; }
+function bookLinks(qid){
+  if(!B||!Q2S[qid]) return '';
+  return Q2S[qid].slice(0,2).map(id=>`<button class="bookbtn" data-book="${id}">📖 개념서에서 읽기 · ${esc(B.sections[id].title)}</button>`).join('');
+}
+function renderBook(){
+  if(!B){
+    main.innerHTML='<div class="card muted">개념서 불러오는 중…</div>';
+    loadBook().then(()=>{ if(view==='book') renderBook(); }).catch(()=>{ if(view==='book') main.innerHTML='<div class="card">개념서(book.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
+    return;
+  }
+  if(bk.sec&&B.sections[bk.sec]) return renderSection(bk.sec);
+  if(bk.memo) return renderMemos();
+  renderToc();
+}
+function chapterRead(cid){ const R=bookState().read; return B.chapters[cid].sections.filter(id=>R[id]).length; }
+function renderToc(){
+  const st=bookState(); const subj=st.subj||'civ'; const sb=B.subjects.find(x=>x.id===subj);
+  const last=st.last&&B.sections[st.last];
+  const secs=subjSecs(subj); const nRead=secs.filter(id=>st.read[id]).length;
+  let html=`<div class="seg">${B.subjects.map(x=>`<button data-subj="${x.id}" class="${x.id===subj?'on':''}">${x.id==='civ'?'민법':'학개론'}</button>`).join('')}</div>
+  <input class="search" id="bks" type="search" placeholder="개념서 검색 (예: 유치권, 저당상수)" value="${esc(bk.q)}">
+  ${last&&!bk.q?`<button class="cont" data-sec="${last.id}"><span>이어 읽기</span>${esc(last.title)}</button>`:''}
+  <div class="row" style="margin:0 2px 10px"><span class="muted">${sb.name} · 읽은 섹션 ${nRead}/${secs.length}</span><button class="linkbtn" id="memo">외우기 모음 ›</button></div>`;
+  if(bk.q.trim()) html+=searchResults(bk.q.trim());
+  else {
+    for(const cid of sb.chapters){
+      const ch=B.chapters[cid]; const r=chapterRead(cid), n=ch.sections.length; const open=bk.open[cid];
+      html+=`<div class="card chap"><button class="hd" data-ch="${cid}"><div class="row"><b>${esc(ch.title)}</b><span class="muted" style="font-size:13px">${open?'접기':'펼치기'}</span></div>
+        <div class="meta">10년 ${ch.nq}문항 출제(한 해 약 ${ch.per_round}문항) · 섹션 ${n}개 · 읽음 ${r}/${n}</div><div class="pbar"><i style="width:${n?Math.round(100*r/n):0}%"></i></div></button>
+        ${open?`<div class="secs">${ch.intro?`<div class="intro">${md(ch.intro)}</div>`:''}${(ch.tables||[]).map(tableHtml).join('')}${ch.sections.map(id=>{ const s=B.sections[id]; return `<button class="srow ${st.read[id]?'read':''}" data-sec="${id}"><span class="ck">${st.read[id]?'✓':''}</span><span class="tag ${s.grade}">${s.grade}</span><span class="t">${esc(s.title)}</span><span class="f">${s.f10}회</span></button>`; }).join('')}</div>`:''}
+      </div>`;
+    }
+    html+=`<p class="muted" style="font-size:12px;margin:4px 2px 0">A = 10년 중 6개 회차 이상 출제(꼭 읽기), B = 4~5회, C = 3회 이하. 오른쪽 숫자는 10년 중 출제 회차 수.</p>`;
+  }
+  main.innerHTML=html;
+  main.querySelectorAll('[data-subj]').forEach(b=>b.onclick=()=>{ st.subj=b.dataset.subj; save(); renderToc(); });
+  main.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{ bk.open[b.dataset.ch]=!bk.open[b.dataset.ch]; const y=window.scrollY; renderToc(); window.scrollTo(0,y); });
+  main.querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>{ bk.tocY=window.scrollY; openSection(b.dataset.sec); });
+  main.querySelector('#memo').onclick=()=>{ bk.tocY=window.scrollY; bk.memo=true; render(); };
+  const inp=main.querySelector('#bks');
+  inp.oninput=()=>{ bk.q=inp.value; clearTimeout(inp._t); inp._t=setTimeout(()=>{ renderToc(); const i2=main.querySelector('#bks'); i2.focus(); i2.setSelectionRange(i2.value.length,i2.value.length); },250); };
+  if(bk.tocY){ const y=bk.tocY; bk.tocY=0; requestAnimationFrame(()=>window.scrollTo(0,y)); }
+}
+function openSection(id){ bk.sec=id; bk.memo=false; render(); }
+function searchResults(q){
+  const ql=q.toLowerCase(); const hits=[];
+  const mark=t=>{ const i=t.toLowerCase().indexOf(ql); if(i<0) return null; const a=Math.max(0,i-24); return (a?'…':'')+esc(t.slice(a,i))+'<mark>'+esc(t.slice(i,i+q.length))+'</mark>'+esc(t.slice(i+q.length,i+q.length+40))+'…'; };
+  for(const s of Object.values(B.sections)){
+    const pool=[s.title,s.law||'',s.one||'',...(s.concept||[]),...(s.traps||[]),s.memo||'',...(s.tables||[]).flatMap(t=>[t.title||'',...(t.head||[]),...t.rows.flat()]),...(s.calc||[]).flatMap(c=>[c.name,c.formula]),...s.ox.flatMap(o=>[o.text,o.fix||'',o.why||''])].map(t=>(t||'').replace(/\*\*/g,''));
+    let first=null, n=0; for(const t of pool){ if(t.toLowerCase().includes(ql)){ n++; if(!first) first=mark(t); } }
+    if(n) hits.push({s,n,first,score:(s.title.toLowerCase().includes(ql)?1000:0)+n});
+  }
+  hits.sort((a,b)=>b.score-a.score);
+  if(!hits.length) return `<div class="card muted">'${esc(q)}'(이)가 들어간 섹션이 없습니다.</div>`;
+  return `<div class="card" style="padding:6px 14px">${hits.slice(0,40).map(h=>`<button class="srow" data-sec="${h.s.id}"><span class="tag ${h.s.grade}">${h.s.grade}</span><span class="t">${esc(h.s.title)} <span class="muted" style="font-size:12px">${h.s.ch[0]==='C'?'민법':'학개론'} · ${h.n}곳</span><div class="hit">${h.first||''}</div></span></button>`).join('')}</div>`;
+}
+function tableHtml(t){
+  return `<div class="tw"><table>${t.title?`<caption>${md(t.title)}</caption>`:''}${t.head&&t.head.length?`<thead><tr>${t.head.map(h=>`<th>${md(h)}</th>`).join('')}</tr></thead>`:''}<tbody>${t.rows.map(r=>`<tr>${r.map(c=>`<td>${md(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+// 틀린 지문과 바로잡은 문장을 낱말 단위로 비교해 바뀐 곳만 표시
+function wordDiff(a,b){
+  const A=a.split(/(\s+)/).filter(x=>x!==''), Bw=b.split(/(\s+)/).filter(x=>x!=='');
+  const n=A.length, m=Bw.length; if(n*m>40000) return null;
+  const L=Array.from({length:n+1},()=>new Uint16Array(m+1));
+  for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--) L[i][j]=A[i]===Bw[j]?L[i+1][j+1]+1:Math.max(L[i+1][j],L[i][j+1]);
+  let i=0,j=0, ra='', rb='';
+  while(i<n||j<m){
+    if(i<n&&j<m&&A[i]===Bw[j]){ ra+=esc(A[i]); rb+=esc(Bw[j]); i++; j++; }
+    else if(j<m&&(i>=n||L[i][j+1]>=L[i+1][j])){ rb+=/^\s+$/.test(Bw[j])?Bw[j]:'<ins>'+esc(Bw[j])+'</ins>'; j++; }
+    else { ra+=/^\s+$/.test(A[i])?A[i]:'<del>'+esc(A[i])+'</del>'; i++; }
+  }
+  return {a:ra,b:rb};
+}
+function oxStatus(o){
+  if(!o.c) return '';
+  let del=0, miss=0, seen=0;
+  for(const id of o.c){ const st=S.cards[id]; if(!st) continue; if(st.st===2) del++; miss+=st.miss||0; seen+=st.seen||0; }
+  if(miss) return `<span class="dot miss">틀린 적 ${miss}</span>`;
+  if(del&&del===o.c.length) return '<span class="dot del">지움</span>';
+  if(seen) return '<span class="dot ok">맞힘</span>';
+  return '';
+}
+function oxHtml(o,i){
+  const d=o.ox==='X'&&o.fix?wordDiff(o.text,o.fix):null;
+  const also=(o.also||[]).map(rlabel);
+  return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx"><span class="rd">${rlabel(o.ref)}</span><span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${o.re?'<span class="re">(보기를 문장으로)</span>':''}${oxStatus(o)}</div></div>
+    <div class="more">${o.ox==='X'&&o.fix?`<div class="fx">→ ${d?d.b:esc(o.fix)}</div>`:''}${o.why?`<div class="wy">${md(o.why)}</div>`:''}${o.now?`<div class="nw">법 개정: ${esc(o.now)}</div>`:''}${also.length?`<div class="al">같은 논점 기출: ${also.join(', ')}</div>`:''}</div></li>`;
+}
+function renderSection(id){
+  const st=bookState(); const s=B.sections[id], ch=B.chapters[s.ch];
+  if(st.last!==id){ st.last=id; save(); }
+  const list=subjSecs(s.ch[0]==='C'?'civ':'rea'); const k=list.indexOf(id);
+  const prev=k>0?B.sections[list[k-1]]:null, next=k<list.length-1?B.sections[list[k+1]]:null;
+  const qcards=D?D.cards.filter(c=>s.refs.includes(c.q)):[];
+  const live=qcards.filter(c=>cardState(c.id).st!==2);
+  let oxs=s.ox.map((o,i)=>[o,i]);
+  if(bk.wrong) oxs=oxs.filter(([o])=>o.c&&o.c.some(cid=>(S.cards[cid]||{}).miss>0));
+  const nX=s.ox.filter(o=>o.ox==='X').length;
+  main.innerHTML=`<div class="reader">
+    ${bk.from==='card'?`<div class="backbar"><button class="btn n small" id="backCard">← 카드로 돌아가기</button></div>`:''}
+    <div class="row"><button class="linkbtn" id="toToc">‹ 목차</button><span class="muted" style="font-size:12px">${k+1} / ${list.length}</span></div>
+    <div class="crumb">${s.ch[0]==='C'?'민법':'학개론'} › ${esc(ch.title)}</div>
+    <h2 class="st">${esc(s.title)}</h2>
+    ${s.law?`<div class="lawl">${esc(s.law)}</div>`:''}
+    <div><span class="tag ${s.grade}">${s.grade}급</span><span class="tag">${freqLabel(s)}</span>${st.read[id]?'<span class="tag" style="background:var(--o-bg);color:var(--o)">읽음</span>':''}</div>
+    ${s.one?`<div class="one"><small>그래서 이것만</small>${md(s.one)}</div>`:''}
+    ${s.warn?`<div class="warnbox">법 개정 주의: ${md(s.warn)}</div>`:''}
+    <ul class="concept">${(s.concept||[]).map(t=>/^\s*-\s+/.test(t)?`<li class="sub">${md(t.replace(/^\s*-\s+/,''))}</li>`:`<li>${md(t)}</li>`).join('')}</ul>
+    ${(s.tables||[]).map(tableHtml).join('')}
+    ${(s.calc||[]).map(c=>`<div class="calcb"><div class="nm">${esc(c.name)}</div><div class="fm">${esc(c.formula)}</div>${c.steps&&c.steps.length?`<ol>${c.steps.map(x=>`<li>${md(x.replace(/^\s*\d+[).]\s*/,''))}</li>`).join('')}</ol>`:''}${c.trap?`<div class="ct">함정: ${md(c.trap.replace(/^함정\s*(답)?\s*[:：]\s*/,''))}</div>`:''}${c.ex?`<div class="ex">대표 기출: ${rlabel(c.ex)}</div>`:''}</div>`).join('')}
+    ${s.ox.length?`<div class="sech"><h3>기출 지문 ${s.ox.length}개 <span class="muted" style="font-size:12px;font-weight:600">(틀린 지문 ${nX})</span></h3>
+      <div style="display:flex;gap:6px"><button class="chipbtn ${bk.wrong?'on':''}" id="wrongOnly">틀린 적만</button><button class="chipbtn ${st.hide?'on':''}" id="hideAns">${st.hide?'답 가림':'답 가리기'}</button></div></div>
+      <p class="muted" style="font-size:12px;margin:0 0 2px">${st.hide?'지문을 누르면 정답과 근거가 열립니다.':'빨간 줄은 출제자가 바꾼 말, 초록은 바로잡은 말.'}</p>
+      <ul class="oxl ${st.hide?'hideans':''}" id="oxl">${oxs.length?oxs.map(([o,i])=>oxHtml(o,i)).join(''):'<li class="muted" style="padding:10px 0">카드에서 틀린 적 있는 지문이 없습니다.</li>'}</ul>`:''}
+    ${s.traps&&s.traps.length?`<div class="trapbox"><b>출제자가 바꾸는 자리</b><ul style="margin:0;padding-left:18px">${s.traps.map(t=>`<li>${md(t)}</li>`).join('')}</ul></div>`:''}
+    ${s.memo?`<div class="memo"><small>외우기</small>${md(s.memo)}</div>`:''}
+    <details><summary>이 섹션의 기출 문항 ${s.refs.length}개</summary><div style="margin-top:6px">${s.refs.map(q=>`<div class="qref"><b>${rlabel(q)}</b> ${esc(B.qs[q]||'')}</div>`).join('')}</div></details>
+    <div class="btns" style="margin-top:14px">${live.length?`<button class="btn n small" id="runCards">이 논점 카드 ${live.length}장 돌리기</button>`:`<button class="btn ghost small" disabled>${qcards.length?'이 논점 카드는 다 지웠습니다':'카드는 32~36회만 있습니다'}</button>`}</div>
+    <div class="btns" style="margin-top:8px"><button class="btn ${st.read[id]?'ghost':'o'} small" id="readBtn">${st.read[id]?'읽음 표시 지우기':'✓ 다 읽었다'}</button></div>
+    <div class="pn">${prev?`<button data-go="${prev.id}"><span>‹ 이전</span>${esc(prev.title)}</button>`:'<span style="flex:1"></span>'}${next?`<button class="nx" data-go="${next.id}" data-mark="1"><span>다음 ›</span>${esc(next.title)}</button>`:'<span style="flex:1"></span>'}</div>
+  </div>`;
+  const bc=main.querySelector('#backCard'); if(bc) bc.onclick=()=>{ bk.from=null; bk.sec=null; goView('today'); };
+  main.querySelector('#toToc').onclick=()=>{ bk.sec=null; bk.from=null; bk.open[s.ch]=true; render(); };
+  main.querySelector('#readBtn').onclick=()=>{ if(st.read[id]) delete st.read[id]; else st.read[id]=today(); save(); const y=window.scrollY; renderSection(id); window.scrollTo(0,y); };
+  const hb=main.querySelector('#hideAns'); if(hb) hb.onclick=()=>{ st.hide=!st.hide; save(); const y=window.scrollY; renderSection(id); window.scrollTo(0,y); };
+  const wb=main.querySelector('#wrongOnly'); if(wb) wb.onclick=()=>{ bk.wrong=!bk.wrong; const y=window.scrollY; renderSection(id); window.scrollTo(0,y); };
+  const ol=main.querySelector('#oxl');
+  if(ol){
+    ol.querySelectorAll('.oxi').forEach(li=>{ if(!st.hide) showDiff(li,true); li.onclick=()=>{ if(!st.hide) return; li.classList.toggle('open'); showDiff(li,li.classList.contains('open')); }; });
+  }
+  const rc=main.querySelector('#runCards'); if(rc) rc.onclick=()=>{ bk.from=null; view='today'; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.v==='today')); startSession(live); };
+  main.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{ if(b.dataset.mark&&!st.read[id]){ st.read[id]=today(); save(); } bk.from=null; openSection(b.dataset.go); });
+}
+function showDiff(li,on){ const a=li.querySelector('.t0'), b=li.querySelector('.t1'); if(!b) return; a.classList.toggle('hide',on); b.classList.toggle('hide',!on); }
+function renderMemos(){
+  const st=bookState(); const subj=st.subj||'civ'; const sb=B.subjects.find(x=>x.id===subj);
+  let html=`<div class="reader"><div class="row"><button class="linkbtn" id="toToc">‹ 목차</button></div>
+    <h2 class="st">외우기 모음 · ${subj==='civ'?'민법':'학개론'}</h2>
+    <p class="muted" style="margin:0 0 8px">시험 전날과 당일 아침에 읽는 한 줄씩. 제목을 누르면 그 섹션으로 갑니다.</p>
+    <div class="seg">${B.subjects.map(x=>`<button data-subj="${x.id}" class="${x.id===subj?'on':''}">${x.id==='civ'?'민법':'학개론'}</button>`).join('')}</div>`;
+  for(const cid of sb.chapters){
+    const ch=B.chapters[cid];
+    html+=`<div class="card"><b>${esc(ch.title)}</b>${ch.sections.map(id=>{ const s=B.sections[id]; return s.memo?`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><button class="linkbtn" data-sec="${id}" style="font-size:13px;text-align:left"><span class="tag ${s.grade}" style="font-size:11px">${s.grade}</span>${esc(s.title)}</button><div style="font-size:15px;line-height:1.6;font-weight:700">${md(s.memo)}</div></div>`:''; }).join('')}</div>`;
+  }
+  main.innerHTML=html+'</div>';
+  main.querySelector('#toToc').onclick=()=>{ bk.memo=false; render(); };
+  main.querySelectorAll('[data-subj]').forEach(b=>b.onclick=()=>{ st.subj=b.dataset.subj; save(); renderMemos(); window.scrollTo(0,0); });
+  main.querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>openSection(b.dataset.sec));
+}
+
 /* ===== 시작 ===== */
 function migrate(){
   let n=0; const t=today(); const byId={}; D.cards.forEach(c=>byId[c.id]=c);
@@ -453,7 +714,7 @@ function migrate(){
   if(n){ S.notice=`카드 ${n}장의 질문 방식이나 정답이 바뀌어 그 카드만 기록을 다시 시작합니다.`; }
   save();
 }
-fetch('cards.json?v='+Date.now()).then(r=>r.json()).then(d=>{ D=d; migrate(); render(); }).catch(e=>{ main.innerHTML='<div class="card">카드 자료(cards.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
+fetch('cards.json?v='+Date.now()).then(r=>r.json()).then(d=>{ D=d; migrate(); render(); loadBook().then(()=>{ if(view==='today'&&!session) renderToday(); }).catch(()=>{}); }).catch(e=>{ main.innerHTML='<div class="card">카드 자료(cards.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 </script>
 </body>
