@@ -210,12 +210,31 @@ a.btn{display:block;text-align:center;text-decoration:none}
 .vb i{display:block;width:100%;background:var(--acc);border-radius:4px 4px 0 0;margin-top:2px}
 .vbl{display:flex;gap:6px;font-size:12px;color:var(--muted)}.vbl span{flex:1;text-align:center}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+/* ===== 연속 기록·회독 ===== */
+.streak{font-size:15px;font-weight:800;padding:8px 10px;border-radius:10px;margin:6px 0 4px;background:var(--bg);color:var(--ink2);letter-spacing:-.2px}
+.streak.ok{background:var(--o-bg);color:var(--o)} .streak.up{background:var(--acc-bg);color:var(--acc)} .streak.bad{background:var(--x-bg);color:var(--x)}
+.prog{border:1.5px solid var(--acc)}
+.prog .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.prog .ps{font-size:14px;font-weight:800;color:var(--acc)}
+.prog .big{font-size:34px;font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+.prog .big small{font-size:15px;font-weight:800;color:var(--ink2);letter-spacing:0;margin-left:6px}
+.sbar{display:flex;height:16px;background:var(--line);border-radius:8px;overflow:hidden;margin:10px 0 6px}
+.sbar i{display:block;height:100%}
+.sbar .d,.leg .d::before{background:var(--o)} .sbar .s,.leg .s::before{background:var(--acc)}
+.leg{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.leg span::before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;background:var(--line)}
+.passes{display:flex;gap:6px;margin:10px 0 0}
+.passes span{flex:1;text-align:center;font-size:12.5px;padding:6px 0;border-radius:9px;background:var(--bg);color:var(--muted);font-weight:800;font-variant-numeric:tabular-nums}
+.passes span.on{background:var(--acc-bg);color:var(--acc)} .passes span.ok{background:var(--o-bg);color:var(--o)}
+.prog .gr{font-size:12.5px;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
+.prog .pace{font-size:13.5px;color:var(--ink2);background:var(--bg);border-radius:10px;padding:7px 10px;margin-top:8px;line-height:1.55}
+.bar{display:flex} .bar #bar{background:var(--o)} .bar #bar2{display:block;height:100%;background:var(--acc);width:0%}
 </style>
 </head>
 <body>
 <header>
   <div class="top"><h1 id="title">기출 지우개</h1><div class="sub"><span id="subtitle">불러오는 중</span><span id="syncdot"></span></div></div>
-  <div class="bar"><i id="bar"></i></div>
+  <div class="bar"><i id="bar"></i><i id="bar2"></i></div>
 </header>
 <main id="main"></main>
 <nav class="tabs">
@@ -232,7 +251,7 @@ a.btn{display:block;text-align:center;text-decoration:none}
 const CIRC='①②③④⑤';
 let D=null;              // cards.json
 let S=load();            // 진행 상태
-const EXAM_DATE=new Date('2026-10-31T00:00:00+09:00');
+const EXAM_DATE=new Date('2026-10-31T00:00:00+09:00'), EXAM_DAY='2026-10-31';
 
 function load(){ try{ return JSON.parse(localStorage.getItem('jiugae')||'{}'); }catch(e){ return {}; } }
 function save(){ stamp(); try{ localStorage.setItem('jiugae',JSON.stringify(S)); }catch(e){} }
@@ -454,20 +473,37 @@ document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{ if(b.dat
 function goView(v){ view=v; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.v===v)); render(); }
 function esc(s){ return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
 function header(){
-  const total=D.cards.length, del=Object.values(S.cards).filter(s=>s.st===2).length;
-  document.getElementById('subtitle').textContent=`D-${daysLeft()} · 남은 카드 ${total-del} / 지운 카드 ${del}`;
-  document.getElementById('bar').style.width=(100*del/total).toFixed(1)+'%';
+  const p=passInfo();
+  document.getElementById('subtitle').textContent=`D-${daysLeft()} · ${p.live?`${p.pass}회독 ${pct(p.pct)}`:'다 지움'} · 지움 ${p.del}`;
+  document.getElementById('bar').style.width=(100*p.del/p.total).toFixed(2)+'%';
+  document.getElementById('bar2').style.width=(100*p.done/p.total).toFixed(2)+'%';
 }
+// 회독: n회독 = 지우지 않은 카드를 전부 n번 이상 본 상태. 지운 카드는 어느 회독에서나 끝난 것으로 친다.
+// 지금 회독 = 지우지 않은 카드 중 가장 적게 본 횟수 + 1
+function passInfo(){
+  const total=D.cards.length, seen=[], byG={}; let del=0;
+  for(const c of D.cards){
+    const s=S.cards[c.id], g=D.questions[c.q].grade, G=byG[g]||(byG[g]={t:0,del:0,seen:[]}); G.t++;
+    if(s&&s.st===2){ del++; G.del++; } else { const n=s?s.seen||0:0; seen.push(n); G.seen.push(n); }
+  }
+  const live=seen.length, pass=live?Math.min(...seen)+1:0;
+  const doneAt=k=>seen.filter(x=>x>=k).length, done=live?doneAt(pass):0;
+  return {total, del, live, pass, done, pct:100*(del+done)/total, at:k=>100*(del+doneAt(k))/total, byG};
+}
+function pct(x){ return (x>0&&x<1?x.toFixed(1):Math.floor(x))+'%'; }
 function render(){ header(); window.scrollTo(0,0); ({today:renderToday, pat:renderPat, book:renderBook, concepts:renderConcepts, exam:renderExam, stats:renderStats, settings:renderSettings})[view](); }
 
 /* ===== 오늘 ===== */
+let NOTE='';
 function renderToday(){
   if(session){ renderCard(); return; }
   const info=buildQueue(); const t=today(); const d=allDaily()[t];
   const acc=accuracy();
-  const notice=S.notice; if(notice){ delete S.notice; save(); }
-  main.innerHTML=`${notice?`<div class="card note" style="margin-top:0">${esc(notice)}</div>`:''}
+  const pi=passInfo(); if(pi.live&&pi.pass>(S.passMax||1)){ S.notice=(S.notice?S.notice+' ':'')+`🎉 ${pi.pass-1}회독 끝! 이제 ${pi.pass}회독째입니다.`; S.passMax=pi.pass; }
+  if(S.notice){ NOTE=(NOTE?NOTE+' ':'')+S.notice; delete S.notice; save(); } // 개념서·패턴을 늦게 불러와 다시 그려도 알림이 남게, 공부를 시작할 때까지 띄운다
+  main.innerHTML=`${NOTE?`<div class="card note pre" style="margin-top:0">${esc(NOTE)}</div>`:''}
   ${patTodayHtml()}
+  ${progressHtml(pi)}
   <div class="card">
     <div class="row"><b style="font-size:20px">오늘 ${S.minutes}분</b><span class="muted">${t}</span></div>
     <div class="stat">
@@ -498,10 +534,10 @@ function renderToday(){
     <ol style="padding-left:18px;margin:6px 0;font-size:15px">
       <li><b>옳은 말 카드</b>: 문장이 맞으면 <b>O</b>, 틀리면 <b>X</b>. 발문이 '틀린 것은?'이어도 문장 자체만 본다.</li>
       <li><b>예/아니오 카드</b>(해당하는 것·아닌 것을 묻는 문제): 위에 적힌 질문에 <b>예 / 아니오</b>만 답한다. 발문의 '않는 것'은 신경 쓰지 않는다.</li>
-      <li>근거를 읽는다. 이해 안 되면 🤔 버튼을 누르고 넘어간다(내일 다시 나온다).</li>
-      <li>맞혔으면 "근거까지 알았다 / 답만 맞혔다"를 솔직하게 고른다.</li>
-      <li>'근거까지'가 <b>다른 날 두 번</b> 쌓이면 지울지 묻는다. 지우는 건 PD가 누른다.</li>
+      <li>근거를 읽고 <b>다음 →</b>. 아는지 모르는지 고를 필요 없다. 이해 안 되면 🤔 버튼을 누르고 넘어간다(내일 다시 나온다).</li>
+      <li><b>서로 다른 날 3번 연속</b> 맞히면 저절로 지워진다. 두 번째는 하루 뒤, 세 번째는 이틀 뒤부터 센다. 한 번이라도 틀리면 0부터. 카드 위 ●●○가 지금 연속 기록이다.</li>
       <li>지운 카드는 하루 3장씩 몰래 다시 나온다. 틀리면 되살아난다.</li>
+      <li>맨 위 <b>전체 진도</b>: 지우지 않은 카드를 전부 한 번씩 보면 1회독, 두 번씩 보면 2회독. 지운 카드는 끝난 것으로 친다.</li>
       <li><b>개념</b> 탭은 기출 지문으로 쓴 개념서다. 카드 뒷면의 📖 버튼을 누르면 그 논점 섹션이 바로 열린다.</li>
       <li><b>패턴</b> 탭은 여러 회차 선지가 한 규칙으로 갈리는 자리만 모은 것이다. 처음이면 여기부터 읽고, 카드 뒷면의 ★ 버튼으로 그 패턴에 바로 간다.</li>
     </ol>
@@ -513,6 +549,36 @@ function renderToday(){
   const tb=main.querySelector('#toBook'); if(tb) tb.onclick=()=>{ bk.sec=null; bk.memo=false; bk.from=null; goView('book'); };
   main.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>openPat(b.dataset.pat,null));
   const tp=main.querySelector('#toPat'); if(tp) tp.onclick=()=>{ pt.id=null; pt.memo=false; pt.drill=null; goView('pat'); };
+}
+// 오늘 탭 '전체 진도': 몇 회독째인지, 그 회독이 몇 % 됐는지
+function progressHtml(p){
+  if(!p.live) return `<div class="card prog"><div class="big">✂ 전부 지웠습니다</div><p class="muted" style="margin:6px 0 0">지운 카드 검사만 하루 3장씩 나옵니다.</p></div>`;
+  const k0=Math.max(1,p.pass-1), w=x=>(100*x/p.total).toFixed(2)+'%', left=p.live-p.done;
+  const chips=[k0,k0+1,k0+2].map(k=>`<span class="${k<p.pass?'ok':k===p.pass?'on':''}">${k}회독 ${k<p.pass?'✓':pct(p.at(k))}</span>`).join('');
+  const gr=['A','B','C'].filter(g=>p.byG[g]).map(g=>{ const G=p.byG[g]; return `${g}급 ${pct(100*(G.del+G.seen.filter(x=>x>=p.pass).length)/G.t)}`; }).join(' · ');
+  return `<div class="card prog">
+    <div class="hd"><span class="ps">전체 진도</span><span class="muted" style="font-size:12px">카드 ${p.total.toLocaleString()}장</span></div>
+    <div class="big">${p.pass}회독째 ${pct(p.pct)}</div>
+    <div class="sbar"><i class="d" style="width:${w(p.del)}"></i><i class="s" style="width:${w(p.done)}"></i></div>
+    <div class="leg"><span class="d">지움 ${p.del}</span><span class="s">${p.pass===1?'본 카드':p.pass+'번 본 카드'} ${p.done}</span><span>${p.pass===1?'안 본 카드':'아직'} ${left}</span></div>
+    <div class="passes">${chips}</div>
+    <div class="gr">${gr}${p.pass===1?' (새 카드는 A급부터)':''}</div>
+    ${paceHtml(p)}
+  </div>`;
+}
+function mdw(d){ const x=new Date(d+'T00:00:00'); return `${x.getMonth()+1}/${x.getDate()}(${'일월화수목금토'[x.getDay()]})`; }
+// 지금 속도로 1회독이 언제 끝나나. 새 카드는 '시작' 한 번에 하루 시간(분)만큼 나온다
+function paceHtml(p){
+  const t=today(), lastDay=addDays(EXAM_DAY,-1);
+  if(p.pass>1) return `<div class="pace">${p.pass}회독은 복습 카드로 저절로 채워집니다. 지우지 않은 ${p.live}장 중 ${p.live-p.done}장 남았습니다.</div>`;
+  if(t>lastDay) return '';
+  const per=Math.round(S.minutes*1.0), todayLeft=Math.max(0,per-((allDaily()[t]||{}).new||0));
+  const fin=rem=>rem<=todayLeft?t:addDays(t,Math.ceil((rem-todayLeft)/per));
+  const remAll=p.live-p.done, A=p.byG.A, remA=A?A.seen.filter(x=>x<1).length:0, endAll=fin(remAll);
+  if(endAll<=lastDay) return `<div class="pace">하루 새 카드 ${per}장이면 <b>${mdw(endAll)}</b>에 1회독 끝 · 시험 전 ✓</div>`;
+  const days=dayDiff(t,lastDay)+(todayLeft>0?1:0), need=Math.ceil(remAll/Math.max(1,days)), endA=fin(remA);
+  return `<div class="pace">하루 새 카드 ${per}장이면 1회독 끝 → ${remA?`A급 <b>${mdw(endA)}</b>${endA<=lastDay?' ✓':''}`:'A급 ✓'} · 전체 <b>${mdw(endAll)}</b>
+    <div class="muted" style="font-size:12.5px;margin-top:2px">시험(${mdw(EXAM_DAY)}) 전에 다 보려면 하루 ${need}장. 오늘 분량 뒤 '시작'을 또 누르면 새 카드 ${per}장이 더 나옵니다.</div></div>`;
 }
 // 카드에서 많이 틀린 논점을 개념서 섹션으로 묶어 보여 준다
 function weakHtml(){
@@ -537,6 +603,7 @@ function accuracy(){
 
 let timerId=null, startAt=0;
 function startSession(q){
+  NOTE='';
   session={q, i:0, phase:'ask', pick:null, startAt:Date.now(), sec:0};
   startAt=Date.now();
   clearInterval(timerId); timerId=setInterval(()=>{ const el=document.getElementById('timer'); if(!el||!session) return; const left=S.minutes*60-Math.floor((Date.now()-session.startAt)/1000); el.textContent=(left>=0?'남은 ':'초과 ')+fmt(Math.abs(left)); if(left===0){ try{navigator.vibrate&&navigator.vibrate(200);}catch(e){} } },1000);
@@ -557,10 +624,10 @@ function renderCard(){
   if(s.i>=s.q.length){ main.innerHTML=`<div class="card center"><div class="verdict ok">오늘 분량 끝</div><p class="muted">${s.q.length}장을 봤습니다. 내일 또 봅시다.</p><div class="btns"><button class="btn n" id="done">마치기</button></div></div>`; main.querySelector('#done').onclick=endSession; return; }
   const c=s.q[s.i], Q=D.questions[c.q], st=cardState(c.id);
   const subj=Q.subject==='rea'?'학개론':'민법';
-  const isAudit=st.st===2;
+  const isAudit=s.phase==='ask'?st.st===2:!!(s.res&&(s.res.r==='audit'||s.res.r==='revive')); // 판정 뒤엔 st가 바뀌므로 판정 결과로 본다
   let html=`<div class="row"><span class="muted">${s.i+1} / ${s.q.length}</span><span class="timer" id="timer">남은 ${fmt(S.minutes*60)}</span><button class="btn ghost small" style="flex:0 0 auto;padding:6px 10px" id="quit">그만</button></div>
   <div class="card">
-    <div><span class="tag ${Q.grade}">${Q.grade}급</span><span class="tag">${subj} ${Q.round}회 ${Q.no}번</span>${isAudit?'<span class="tag" style="background:var(--line);color:var(--ink2)">지운 카드 검사</span>':''}${st.st===1?`<span class="muted" style="font-size:12px">근거까지 ${st.k.length}/2</span>`:''}</div>
+    <div><span class="tag ${Q.grade}">${Q.grade}급</span><span class="tag">${subj} ${Q.round}회 ${Q.no}번</span>${isAudit?'<span class="tag" style="background:var(--line);color:var(--ink2)">지운 카드 검사</span>':''}${st.st===1&&s.phase==='ask'?`<span class="muted" style="font-size:12px">지우기까지 ${dots(st.k.length)}</span>`:''}</div>
     <div class="muted" style="font-size:12px;margin-top:4px">${esc(Q.concept)}</div>
     ${c.kind==='calc'&&Q.img?`<img class="qimg" src="${Q.img}" alt="${Q.round}회 ${Q.no}번 문제 원문">`:(c.mode==='member'?(Q.facts?`<div class="qstem">${esc(Q.facts)}</div>`:''):`<div class="qstem">${esc(Q.question)}</div>`)}
     ${!(c.kind==='calc'&&Q.img)&&Q.passage&&Q.passage.length&&(c.kind==='calc'||c.n.match(/[①②③④⑤]/))?`<div class="passage">${esc(Q.passage.join('\n'))}</div>`:''}`;
@@ -587,6 +654,7 @@ function renderCard(){
   if(s.phase!=='ask'){
     const ok=s.pick===c.ox;
     html+=`<div class="verdict ${ok?'ok':'bad'}">${ok?'맞음':'틀림'} · 정답은 ${ansLabel(c)}</div>
+      ${s.confused?'':streakHtml(s.res)}
       ${c.swap?`<div class="fix">바로잡은 문장: ${esc(fixedText(c))}</div><div class="kind">출제자의 바꿔치기: ${esc(c.swap.kind||'')}</div>`:(c.ox==='X'&&c.fix?`<div class="fix">바로잡기: ${esc(c.fix)}</div>`:'')}
       ${c.trap?`<div class="trap"><b>출제자가 바꿀 자리</b> <span class="hl">${esc(c.key||'')}</span><br>${esc(c.trap)}</div>`:''}
       ${c.alt?`<div class="note">${esc(c.alt)}</div>`:''}
@@ -613,25 +681,20 @@ function renderCard(){
     ${c.easy?`<div class="card easy"><b>쉬운 설명</b><div class="reason">${esc(c.easy)}</div></div>`:''}
     <div class="card help ${s.confused?'':'hide'}" id="help">
       <b>괜찮습니다. PD 공부법대로 일단 넘어갑니다.</b>
-      <p class="muted" style="margin:4px 0 8px">이 카드는 '이해 안 된 카드'에 모였습니다. 내일 다시 나오고, 지우기 대상에서 빠집니다.</p>
+      <p class="muted" style="margin:4px 0 8px">이 카드는 '이해 안 된 카드'에 모였습니다. 내일 다시 나오고, 연속 기록은 0으로 돌아갑니다.</p>
       <div class="btns"><a class="btn n small" id="askClaude" target="_blank" rel="noopener" href="${claudeUrl(c,Q)}">Claude에게 쉽게 물어보기</a><button class="btn ghost small" id="copyQ">질문 복사</button></div>
       <p class="muted" style="margin:8px 0 0;font-size:13px">현황 탭의 '이해 안 된 카드 목록 복사'를 Claude Code에 붙여 넣으면 쉬운 설명을 카드에 붙여 다시 올립니다.</p>
     </div>
     <div class="card">
-      <b>${s.confused?'오늘은 여기까지 이해해도 됩니다.':ok?'맞혔습니다. 솔직하게 고르세요.':'다음에 다시 나옵니다.'}</b>
-      ${s.confused?`<div class="btns" style="margin-top:8px"><button class="btn n small" data-r="cf">다음 (내일 다시 보기)</button></div>`:`
-      <div class="btns" style="margin-top:8px">
-        ${ok?`<button class="btn o small" data-r="k">근거까지 알았다</button><button class="btn n small" data-r="a">답만 맞혔다</button>`:`<button class="btn n small" data-r="m">다음</button>`}
-      </div>
-      <div class="btns" style="margin-top:8px"><button class="btn ghost small" id="confused">🤔 해설을 봐도 이해가 안 돼요</button></div>
-      ${(ok&&st.k.length>=1&&st.k[st.k.length-1]!==today()&&!isAudit)?`<div class="btns" style="margin-top:8px"><button class="btn g small" data-r="del">✂ 이건 확실하다, 지우기</button></div>`:''}
-      ${(!isAudit&&!(ok&&st.k.length>=1&&st.k[st.k.length-1]!==today()))?`<div class="btns" style="margin-top:8px"><button class="btn ghost small" data-r="del">✂ 그래도 확실하다, 지우기</button></div>`:''}`}
+      ${s.confused?`<b>오늘은 여기까지 이해해도 됩니다.</b><div class="btns" style="margin-top:8px"><button class="btn n small" data-r="cf">다음 (내일 다시 보기)</button></div>`:`
+      <div class="btns"><button class="btn n" data-r="n">다음 →</button></div>
+      <div class="btns" style="margin-top:8px"><button class="btn ghost small" id="confused">🤔 해설을 봐도 이해가 안 돼요</button>${st.st!==2?`<button class="btn ghost small" style="flex:0 0 auto" data-r="del">✂ 바로 지우기</button>`:''}</div>`}
     </div>`;
   }
   main.innerHTML=html;
   main.querySelector('#quit').onclick=()=>{ if(confirm('여기서 그만할까요? 본 것은 저장됩니다.')) endSession(); };
-  main.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ s.pick=b.dataset.p; s.phase='show'; judge(c, s.pick===c.ox); renderCard(); });
-  main.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ afterCard(c, b.dataset.r); s.i++; s.phase='ask'; s.pick=null; s.confused=false; renderCard(); });
+  main.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ s.pick=b.dataset.p; s.phase='show'; s.res=judge(c, s.pick===c.ox); header(); renderCard(); });
+  main.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ afterCard(c, b.dataset.r); s.i++; s.phase='ask'; s.pick=null; s.confused=false; s.res=null; header(); renderCard(); });
   const cb=main.querySelector('#confused'); if(cb) cb.onclick=()=>{ s.confused=true; if(!S.confused[c.id]) S.confused[c.id]=today(); save(); renderCard(); const h=document.getElementById('help'); if(h) h.scrollIntoView({behavior:'smooth',block:'center'}); };
   const cq=main.querySelector('#copyQ'); if(cq) cq.onclick=()=>copyText(askText(c,Q));
   main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from='card'; goView('book'); });
@@ -683,27 +746,61 @@ function askText(c,Q){
 function claudeUrl(c,Q){ return 'https://claude.ai/new?q='+encodeURIComponent(askText(c,Q)); }
 function copyText(t){ try{ navigator.clipboard.writeText(t).then(()=>alert('복사했습니다. Claude 앱에 붙여 넣으세요.'),()=>fallbackCopy(t)); }catch(e){ fallbackCopy(t); } }
 function fallbackCopy(t){ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); alert('복사했습니다'); }catch(e){ prompt('아래 글을 길게 눌러 복사하세요', t); } ta.remove(); }
+// 지우기 규칙: 서로 다른 날 연속으로 맞히면 저절로 지운다. 한 번이라도 틀리면 0부터.
+// STREAK_GAP[n] = n번째까지 센 뒤 며칠 지나야 다음 정답을 세나. 첫 번째는 언제든, 두 번째는 하루 뒤, 세 번째는 이틀 뒤부터.
+// OX 카드를 찍어서 3번 연속 맞힐 확률은 1/8이고, 지운 카드는 하루 3장씩 몰래 다시 나와 틀리면 되살아난다.
+const STREAK_GAP=[0,1,2], STREAK_N=STREAK_GAP.length;
+// 카드 판정. 돌려주는 값은 뒷면에 띄울 연속 기록 결과: {r:'del'|'up'|'wait'|'miss'|'audit'|'revive', n:지금 연속, prev:틀리기 전 연속, gap:더 기다릴 날}
 function judge(c, ok){
   const Q=D.questions[c.q], st=cardState(c.id), t=today(); const d=S.daily[t]||(S.daily[t]={new:0,rev:0,sec:0});
   S.log.push({d:t, subj:Q.subject, ok, id:c.id}); if(S.log.length>3000) S.log=S.log.slice(-3000);
   if(st.st===0){ d.new++; } else { d.rev++; }
   st.seen++; st.last=t; st.a=c.mode+':'+c.ox;
-  if(!ok){ st.miss++; st.k=[]; if(st.st===2){ st.st=1; } } // 지운 카드 검사에서 틀리면 되살림
-  if(st.st===0) st.st=1;
-  st.due=ok?addDays(t,1):t; // 맞으면 내일, 틀리면 오늘 다시(큐가 끝나면 내일)
-  if(ok&&st.seen>=3&&st.miss===0) st.due=addDays(t,2);
+  const prev=st.k.length; let res;
+  if(!ok){
+    st.miss++; st.k=[]; st.due=t; // 틀리면 오늘 다시(큐가 끝나면 내일)
+    res={r:st.st===2?'revive':'miss', n:0, prev};
+    st.st=1;                        // 지운 카드 검사에서 틀리면 되살림
+  } else if(st.st===2){
+    res={r:'audit', n:prev};
+  } else {
+    st.st=1;
+    const need=STREAK_GAP[Math.min(prev,STREAK_N-1)], gone=prev?dayDiff(st.k[prev-1],t):0;
+    if(!prev||gone>=need){
+      st.k.push(t);
+      if(st.k.length>=STREAK_N){ st.st=2; res={r:'del', n:st.k.length}; }
+      else { st.due=addDays(t,STREAK_GAP[st.k.length]); res={r:'up', n:st.k.length}; }
+    } else {
+      if(!(st.due>t)) st.due=addDays(t,1);
+      res={r:'wait', n:prev, gap:need-gone};
+    }
+    if(S.confused[c.id]&&S.confused[c.id]<t) delete S.confused[c.id]; // 이해 안 됐던 카드를 다른 날 맞히면 목록에서 뺀다
+  }
   save();
+  return res;
 }
 function afterCard(c, r){
   const st=cardState(c.id), t=today();
-  if(r==='k'){ if(!st.k.includes(t)) st.k.push(t); if(st.k.length>=2&&st.st!==2){ if(confirm('근거까지 두 번(다른 날) 알았습니다. 이 선지를 지울까요?\n지운 카드는 하루 3장씩 몰래 다시 나옵니다.')){ st.st=2; } } }
-  if(r==='a'){ /* 답만 맞힘: 근거 기록 없음 */ }
-  if(r==='cf'){ st.k=[]; if(st.st===0) st.st=1; st.due=addDays(t,1); }
-  if(r==='k'&&S.confused[c.id]){ delete S.confused[c.id]; }
+  if(r==='cf'){ st.k=[]; st.st=1; st.due=addDays(t,1); } // 이해 안 됨: 연속 기록을 지우고, 방금 지워졌어도 되살린다
   if(r==='del'){ st.st=2; }
   save();
 }
 function addDays(d,n){ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n); x.setMinutes(x.getMinutes()-x.getTimezoneOffset()); return x.toISOString().slice(0,10); }
+function dayDiff(a,b){ return Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/86400000); }
+function dots(n){ n=Math.min(n,STREAK_N); return '●'.repeat(n)+'○'.repeat(STREAK_N-n); }
+function streakHtml(res){
+  if(!res) return '';
+  const N=STREAK_N, when=g=>g<=1?'내일':g===2?'모레':`${g}일 뒤`;
+  const m={
+    del:['ok',`✂ 지웠습니다 · 서로 다른 날 ${N}번 연속 맞힘`],
+    up:['up',`지우기까지 ${dots(res.n)} ${res.n}/${N} · ${when(STREAK_GAP[res.n])}부터 또 맞히면 ${res.n+1===N?'저절로 지워집니다':`${res.n+1}/${N}`}`],
+    wait:['',`지우기까지 ${dots(res.n)} ${res.n}/${N} · 이번 건 안 셉니다(${when(res.gap)}부터 셉니다)`],
+    miss:['bad',res.prev?`연속 ${res.prev}번이 끊겼습니다 · 0/${N}부터 다시`:`지우기까지 ${dots(0)} 0/${N} · 다시 나옵니다`],
+    audit:['ok','지운 카드 검사 통과 · 그대로 지워 둡니다'],
+    revive:['bad','지운 카드였는데 틀려서 되살렸습니다 · 0/'+N+'부터 다시'],
+  }[res.r];
+  return `<div class="streak ${m[0]}">${m[1]}</div>`;
+}
 
 /* ===== 논점 ===== */
 function renderConcepts(){
