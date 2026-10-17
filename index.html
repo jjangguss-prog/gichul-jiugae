@@ -16,11 +16,11 @@
 :root{
   --bg:#f6f4ee; --card:#ffffff; --ink:#15150f; --ink2:#55534b; --muted:#8a877c; --line:#e3e0d6;
   --o:#1b7f5a; --o-bg:#e4f4ec; --x:#c8322b; --x-bg:#fbe8e6; --acc:#2f63d0; --acc-bg:#e7eefb; --warn:#b26a00; --warn-bg:#fff2dc;
-  --del:#6b6b6b; --focus:#e8e6df;
+  --del:#6b6b6b; --focus:#e8e6df; --cc:rgba(255,212,0,.6);
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#15161a; --card:#1f2127; --ink:#f0eee6; --ink2:#c2bfb5; --muted:#8c897f; --line:#33363e;
-    --o:#4cc38a; --o-bg:#173427; --x:#ff6b61; --x-bg:#3a1f1d; --acc:#7aa2ff; --acc-bg:#1f2a44; --warn:#ffb84d; --warn-bg:#3a2d14; --focus:#3a3d46; }
+    --o:#4cc38a; --o-bg:#173427; --x:#ff6b61; --x-bg:#3a1f1d; --acc:#7aa2ff; --acc-bg:#1f2a44; --warn:#ffb84d; --warn-bg:#3a2d14; --focus:#3a3d46; --cc:rgba(255,200,0,.32); }
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;font-size:17px;line-height:1.5}
@@ -94,9 +94,15 @@ a.btn{display:block;text-align:center;text-decoration:none}
 .kind{font-size:13px;color:var(--x);margin:2px 0 6px;font-weight:700}
 .trap{font-size:14px;background:var(--warn-bg);color:var(--ink);padding:8px 10px;border-radius:8px;margin:6px 0}
 .box{font-size:15px;padding:8px 10px;border-radius:8px;margin:8px 0 0;line-height:1.55}
-.box b{display:inline-block;margin-right:6px}
+.box b:not(.kw){display:inline-block;margin-right:6px}
 .box.issue{background:var(--acc-bg)} .box.intent{background:var(--x-bg)}
 .note.pre{white-space:pre-wrap}
+/* 해설 강조: 개념어 굵게(.kw), O/X를 가르는 결론 형광 밑줄(.cc), 조문·판례 번호 작은 회색(.lw) */
+b.kw{font-weight:800}
+.note .kw,.wy .kw,.oxi .kw,.qref .kw{color:var(--ink)}
+.cc{font-weight:800;color:var(--ink);background:linear-gradient(transparent 56%,var(--cc) 56%);-webkit-box-decoration-break:clone;box-decoration-break:clone;padding:0 1px}
+.tip .cc,.opt-r.ok .cc{color:inherit}
+.lw{font-size:.8em;color:var(--muted);font-weight:500;letter-spacing:-.01em}
 /* ===== 개념서 ===== */
 .seg{display:flex;background:var(--line);border-radius:12px;padding:3px;gap:3px;margin-bottom:10px}
 .seg button{flex:1;border:0;background:transparent;padding:9px 10px;border-radius:9px;font-size:15px;font-weight:800;color:var(--ink2);cursor:pointer}
@@ -160,7 +166,7 @@ a.btn{display:block;text-align:center;text-decoration:none}
 .dot{display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;margin-left:4px;font-weight:800;vertical-align:1px}
 .dot.del{background:var(--line);color:var(--ink2)}.dot.miss{background:var(--x-bg);color:var(--x)}.dot.ok{background:var(--o-bg);color:var(--o)}
 .trapbox{background:var(--warn-bg);border-radius:12px;padding:10px 14px;margin:14px 0}
-.trapbox b{display:block;color:var(--warn);font-size:14px;margin-bottom:4px}
+.trapbox b:not(.kw){display:block;color:var(--warn);font-size:14px;margin-bottom:4px}
 .trapbox li{font-size:15px;line-height:1.6;margin:3px 0}
 .memo{background:#fff3a3;color:#1a1a00;border-radius:12px;padding:12px 14px;font-weight:800;margin:14px 0;line-height:1.6;font-size:16px}
 .memo small{display:block;font-size:12px;opacity:.7;margin-bottom:2px}
@@ -191,7 +197,7 @@ a.btn{display:block;text-align:center;text-decoration:none}
 .prule{list-style:none;padding:0;margin:10px 0}
 .prule li{padding:9px 12px;margin:6px 0;border-radius:10px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink);font-size:16px;font-weight:600;line-height:1.65}
 .pexc{background:var(--warn-bg);border-radius:12px;padding:8px 14px;margin:10px 0;font-size:15px;line-height:1.6}
-.pexc b{display:block;color:var(--warn);font-size:13px}
+.pexc b:not(.kw){display:block;color:var(--warn);font-size:13px}
 .lesson{padding:10px 0;border-bottom:1px solid var(--line)}
 .lesson:last-child{border-bottom:0}
 .lesson .k{font-size:12px;color:var(--muted);font-weight:800}
@@ -472,6 +478,12 @@ let view='today', session=null;
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{ if(b.dataset.v==='book'&&view==='book'){ bk.sec=null; bk.memo=false; bk.from=null; } view=b.dataset.v; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
 function goView(v){ view=v; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.v===v)); render(); }
 function esc(s){ return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+// 해설 글: **개념어** 굵게, ⟪결론⟫ 형광 밑줄(표시는 앱/강조.py가 넣는다). 조문·판례 번호는 작은 회색으로 물린다.
+const LREF=String.raw`(?:[가-힣]{1,15}법\s*)?제?\d{1,4}조(?:의\s?\d+)?(?!\s*원)(?:\s*제?\d+항)?(?:\s*제?\d+호)?(?:\s*(?:본문|단서|전단|후단))?(?:\s*준용)?`;
+const LCASE=String.raw`대판\s*\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.?\s*\d{2,4}[가-힣]{1,3}\d+(?:\s*전원합의체)?`;
+const LAWRE=new RegExp(String.raw`\((?:\s*(?:${LREF}|${LCASE}|판례|전원합의체)\s*[,·/]?)+\)|${LREF}|${LCASE}`,'g');
+function md(t){ return esc(t).replace(LAWRE,'<span class="lw">$&</span>').replace(/\*\*(.+?)\*\*/g,'<b class="kw">$1</b>').replace(/⟪(.+?)⟫/g,'<span class="cc">$1</span>'); }
+function plain(t){ return (t||'').replace(/\*\*|[⟪⟫]/g,''); }
 function header(){
   const p=passInfo();
   document.getElementById('subtitle').textContent=`D-${daysLeft()} · ${p.live?`${p.pass}회독 ${pct(p.pct)}`:'다 지움'} · 지움 ${p.del}`;
@@ -657,29 +669,29 @@ function renderCard(){
     html+=`<div class="verdict ${ok?'ok':'bad'}">${ok?'맞음':'틀림'} · 정답은 ${ansLabel(c)}</div>
       ${s.confused?'':streakHtml(s.res)}
       ${c.swap?`<div class="fix">바로잡은 문장: ${esc(fixedText(c))}</div><div class="kind">출제자의 바꿔치기: ${esc(c.swap.kind||'')}</div>`:(c.ox==='X'&&c.fix?`<div class="fix">바로잡기: ${esc(c.fix)}</div>`:'')}
-      ${c.trap?`<div class="trap"><b>출제자가 바꿀 자리</b> <span class="hl">${esc(c.key||'')}</span><br>${esc(c.trap)}</div>`:''}
-      ${c.alt?`<div class="note">${esc(c.alt)}</div>`:''}
-      ${c.mode==='choose'&&c.opts?`<div class="opts">${c.opts.map(o=>`<div class="opt-r ${o.ok?'ok':''}"><b>${esc(o.n)}</b> ${o.ok?'<span class="tag">정답</span>':''}${esc(o.reason||'')}${o.law?`<span class="law"> · ${esc(o.law)}</span>`:''}</div>`).join('')}</div>`:''}
-      <div class="reason">${c.reason?esc(c.reason):'<span class="muted">근거 준비 중. 정답 여부만 확인하세요.</span>'}</div>
+      ${c.trap?`<div class="trap"><b>출제자가 바꿀 자리</b> <span class="hl">${esc(c.key||'')}</span><br>${md(c.trap)}</div>`:''}
+      ${c.alt?`<div class="note">${md(c.alt)}</div>`:''}
+      ${c.mode==='choose'&&c.opts?`<div class="opts">${c.opts.map(o=>`<div class="opt-r ${o.ok?'ok':''}"><b>${esc(o.n)}</b> ${o.ok?'<span class="tag">정답</span>':''}${md(o.reason||'')}${o.law?`<span class="law"> · ${esc(o.law)}</span>`:''}</div>`).join('')}</div>`:''}
+      <div class="reason">${c.reason?md(c.reason):'<span class="muted">근거 준비 중. 정답 여부만 확인하세요.</span>'}</div>
       ${c.law?`<div class="law">${esc(c.law)}</div>`:''}
-      ${c.point?`<div class="box issue"><b>이 선지의 논점</b> ${esc(c.point)}</div>
+      ${c.point?`<div class="box issue"><b>이 선지의 논점</b> ${md(c.point)}</div>
       ${Q.issue||Q.intent||Q.frame?`<details><summary>문항 전체의 논점·출제 의도 (이 선지와는 다른 주제)</summary>
-        ${Q.issue?`<div class="box issue"><b>논점</b> ${esc(Q.issue)}</div>`:''}
-        ${Q.intent?`<div class="box intent"><b>출제 의도</b> ${esc(Q.intent)}</div>`:''}
-        ${Q.frame?`<div class="note pre">${esc(Q.frame)}</div>`:''}
-        ${Q.tip?`<div class="tip">암기팁: ${esc(Q.tip)}</div>`:''}</details>`:''}`:`
-      ${Q.issue?`<div class="box issue"><b>논점</b> ${esc(Q.issue)}</div>`:''}
-      ${Q.intent?`<div class="box intent"><b>출제 의도</b> ${esc(Q.intent)}</div>`:''}
-      ${Q.frame?`<details open><summary>판단 틀 (헷갈리는 것 나란히 보기)</summary><div class="note pre">${esc(Q.frame)}</div></details>`:''}`}
-      ${Q.core&&!Q.issue?`<details><summary>이 문제의 핵심</summary><div class="note">${esc(Q.core)}</div></details>`:''}
+        ${Q.issue?`<div class="box issue"><b>논점</b> ${md(Q.issue)}</div>`:''}
+        ${Q.intent?`<div class="box intent"><b>출제 의도</b> ${md(Q.intent)}</div>`:''}
+        ${Q.frame?`<div class="note pre">${md(Q.frame)}</div>`:''}
+        ${Q.tip?`<div class="tip">암기팁: ${md(Q.tip)}</div>`:''}</details>`:''}`:`
+      ${Q.issue?`<div class="box issue"><b>논점</b> ${md(Q.issue)}</div>`:''}
+      ${Q.intent?`<div class="box intent"><b>출제 의도</b> ${md(Q.intent)}</div>`:''}
+      ${Q.frame?`<details open><summary>판단 틀 (헷갈리는 것 나란히 보기)</summary><div class="note pre">${md(Q.frame)}</div></details>`:''}`}
+      ${Q.core&&!Q.issue?`<details><summary>이 문제의 핵심</summary><div class="note">${md(Q.core)}</div></details>`:''}
       ${Q.calc?`<details><summary>계산 풀이</summary><div class="calc">${esc(Q.calc)}</div></details>`:''}
-      ${Q.tip&&!c.point?`<div class="tip">암기팁: ${esc(Q.tip)}</div>`:''}
+      ${Q.tip&&!c.point?`<div class="tip">암기팁: ${md(Q.tip)}</div>`:''}
       ${Q.revision?`<div class="note">법 개정 주의: ${esc(Q.revision)}</div>`:''}
       ${patLinks(c.id)}${bookLinks(c.q)}
       ${Q.related&&Q.related.length?`<details><summary>같은 논점 기출 ${Q.related.length}문항</summary><div class="note">${Q.related.map(x=>`${x.r}회 ${x.n}번 · ${esc(x.q)}`).join('<br>')}</div></details>`:''}
       <details><summary>문제 전체 보기</summary><div class="note">${esc(Q.question)}${Q.passage&&Q.passage.length?'\n'+esc(Q.passage.join('\n')):''}<br>${Q.choices.map((t,i)=>`${CIRC[i]} ${esc(t)}`).join('<br>')}<br><b>정답 ${Q.all_correct?'모두 정답(이의신청으로 전항정답 처리)':CIRC[Q.answer-1]}</b></div></details>
     </div>
-    ${c.easy?`<div class="card easy"><b>쉬운 설명</b><div class="reason">${esc(c.easy)}</div></div>`:''}
+    ${c.easy?`<div class="card easy"><b>쉬운 설명</b><div class="reason">${md(c.easy)}</div></div>`:''}
     <div class="card help ${s.confused?'':'hide'}" id="help">
       <b>괜찮습니다. PD 공부법대로 일단 넘어갑니다.</b>
       <p class="muted" style="margin:4px 0 8px">이 카드는 '이해 안 된 카드'에 모였습니다. 내일 다시 나오고, 연속 기록은 0으로 돌아갑니다.</p>
@@ -742,7 +754,7 @@ function ansLabel(c){
 }
 function askText(c,Q){
   const pas=(Q.passage||[]).join(' / ').slice(0,1200);
-  return `공인중개사 1차 기출을 공부하는데 아래 해설을 봐도 이해가 안 돼.\n중학생도 알아듣게 쉬운 말과 생활 예시로 5줄 안에 설명해 줘. 법률 용어는 괄호로 풀어 줘. 마지막 줄에 외울 한 문장을 줘.\n\n[문제] 제${Q.round}회 ${Q.no}번 ${Q.question}\n${pas?'[조건·보기] '+pas+'\n':''}[카드] ${c.n} ${c.mode==='calc'?'':c.text}\n[정답] ${ansLabel(c)}\n[해설] ${c.reason||''}${c.law?'\n[근거] '+c.law:''}${Q.calc?'\n[풀이] '+Q.calc:''}`;
+  return `공인중개사 1차 기출을 공부하는데 아래 해설을 봐도 이해가 안 돼.\n중학생도 알아듣게 쉬운 말과 생활 예시로 5줄 안에 설명해 줘. 법률 용어는 괄호로 풀어 줘. 마지막 줄에 외울 한 문장을 줘.\n\n[문제] 제${Q.round}회 ${Q.no}번 ${Q.question}\n${pas?'[조건·보기] '+pas+'\n':''}[카드] ${c.n} ${c.mode==='calc'?'':c.text}\n[정답] ${ansLabel(c)}\n[해설] ${plain(c.reason)}${c.law?'\n[근거] '+c.law:''}${Q.calc?'\n[풀이] '+Q.calc:''}`;
 }
 function claudeUrl(c,Q){ return 'https://claude.ai/new?q='+encodeURIComponent(askText(c,Q)); }
 function copyText(t){ try{ navigator.clipboard.writeText(t).then(()=>alert('복사했습니다. Claude 앱에 붙여 넣으세요.'),()=>fallbackCopy(t)); }catch(e){ fallbackCopy(t); } }
@@ -832,7 +844,7 @@ function renderExamPaper(){
   for(const q of qs){
     html+=q.img?`<img class="qimg" src="${q.img}" alt="${q.no}번 문제 원문">`:`<div class="q">${q.no}. ${esc(q.question)}</div>${q.passage.length?`<div class="passage">${esc(q.passage.join('\n'))}</div>`:''}`;
     q.choices.forEach((t,i)=>{ const sel=exam.answers[q.no]===i+1; let cls='opt'+(sel?' sel':''); if(exam.done){ if(q.all_correct?sel:(i+1===q.answer)) cls+=' right'; else if(sel) cls+=' wrongsel'; } html+=`<button class="${cls}" data-q="${q.no}" data-i="${i+1}">${CIRC[i]} ${esc(t)}</button>`; });
-    if(exam.done&&q.core) html+=`<div class="note">${esc(q.core)}</div>`;
+    if(exam.done&&q.core) html+=`<div class="note">${md(q.core)}</div>`;
   }
   const n=Object.keys(exam.answers).length;
   html+=`<div class="sticky-bottom">${exam.done?`<div class="card center"><div class="verdict ${exam.score>=40?'ok':'bad'}">${exam.score}점</div><p class="muted">40점 미만이면 과락, 평균 60점이면 합격</p></div>`:`<div class="btns"><button class="btn n" id="grade">채점 (${n}/40 표시함)</button></div>`}</div></div>`;
@@ -928,7 +940,6 @@ function loadBook(){
   if(!bookLoading) bookLoading=fetch('book.json?v='+Date.now()).then(r=>r.json()).then(d=>{ B=d; Q2S={}; for(const s of Object.values(B.sections)) for(const q of s.refs) (Q2S[q]=Q2S[q]||[]).push(s.id); return B; }).catch(e=>{ bookLoading=null; throw e; });
   return bookLoading;
 }
-function md(t){ return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>'); }
 function rlabel(ref){ const p=ref.split('-'); return `${p[0]}회 ${p[1]}번`; }
 function subjSecs(subj){ const out=[]; for(const cid of B.subjects.find(x=>x.id===subj).chapters) out.push(...B.chapters[cid].sections); return out; }
 function freqLabel(s){ return `10년 ${s.f10}회${s.f5?` · 최근5년 ${s.f5}`:''}`; }
@@ -980,7 +991,7 @@ function searchResults(q){
   const ql=q.toLowerCase(); const hits=[];
   const mark=t=>{ const i=t.toLowerCase().indexOf(ql); if(i<0) return null; const a=Math.max(0,i-24); return (a?'…':'')+esc(t.slice(a,i))+'<mark>'+esc(t.slice(i,i+q.length))+'</mark>'+esc(t.slice(i+q.length,i+q.length+40))+'…'; };
   for(const s of Object.values(B.sections)){
-    const pool=[s.title,s.law||'',s.one||'',...(s.concept||[]),...(s.traps||[]),s.memo||'',...(s.tables||[]).flatMap(t=>[t.title||'',...(t.head||[]),...t.rows.flat()]),...(s.calc||[]).flatMap(c=>[c.name,c.formula]),...s.ox.flatMap(o=>[o.text,o.fix||'',o.why||''])].map(t=>(t||'').replace(/\*\*/g,''));
+    const pool=[s.title,s.law||'',s.one||'',...(s.concept||[]),...(s.traps||[]),s.memo||'',...(s.tables||[]).flatMap(t=>[t.title||'',...(t.head||[]),...t.rows.flat()]),...(s.calc||[]).flatMap(c=>[c.name,c.formula]),...s.ox.flatMap(o=>[o.text,o.fix||'',o.why||''])].map(plain);
     let first=null, n=0; for(const t of pool){ if(t.toLowerCase().includes(ql)){ n++; if(!first) first=mark(t); } }
     if(n) hits.push({s,n,first,score:(s.title.toLowerCase().includes(ql)?1000:0)+n});
   }
