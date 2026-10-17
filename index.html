@@ -16,11 +16,11 @@
 :root{
   --bg:#f6f4ee; --card:#ffffff; --ink:#15150f; --ink2:#55534b; --muted:#8a877c; --line:#e3e0d6;
   --o:#1b7f5a; --o-bg:#e4f4ec; --x:#c8322b; --x-bg:#fbe8e6; --acc:#2f63d0; --acc-bg:#e7eefb; --warn:#b26a00; --warn-bg:#fff2dc;
-  --del:#6b6b6b;
+  --del:#6b6b6b; --focus:#e8e6df;
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#15161a; --card:#1f2127; --ink:#f0eee6; --ink2:#c2bfb5; --muted:#8c897f; --line:#33363e;
-    --o:#4cc38a; --o-bg:#173427; --x:#ff6b61; --x-bg:#3a1f1d; --acc:#7aa2ff; --acc-bg:#1f2a44; --warn:#ffb84d; --warn-bg:#3a2d14; }
+    --o:#4cc38a; --o-bg:#173427; --x:#ff6b61; --x-bg:#3a1f1d; --acc:#7aa2ff; --acc-bg:#1f2a44; --warn:#ffb84d; --warn-bg:#3a2d14; --focus:#3a3d46; }
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;font-size:17px;line-height:1.5}
@@ -41,6 +41,7 @@ main{padding:14px 16px;max-width:680px;margin:0 auto}
 .choice{font-size:19px;font-weight:600;margin:10px 0 14px;line-height:1.55}
 .choice .red{color:var(--x);text-decoration:line-through;text-decoration-thickness:2px}
 .choice .hl{background:#fff3a3;color:#000;border-radius:3px;padding:0 2px}
+.choice .focus{background:var(--focus);border-radius:4px;padding:1px 3px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 .btns{display:flex;gap:10px}
 .btn{flex:1;border:0;border-radius:14px;padding:16px 10px;font-size:20px;font-weight:800;cursor:pointer;color:#fff;touch-action:manipulation}
 .btn.o{background:var(--o)} .btn.x{background:var(--x)} .btn.n{background:var(--acc)} .btn.g{background:var(--del)}
@@ -360,8 +361,8 @@ function renderCard(){
       html+=`<div class="btns"><button class="btn n" data-p="Y">예</button><button class="btn g" data-p="N">아니오</button></div></div>`;
     }
   } else {
-    html+=`<div class="ask truth">이 문장은 <b>옳은 말인가요?</b><span>발문이 옳은 것을 묻든 틀린 것을 묻든, 문장 자체가 맞는지만 봅니다</span></div>
-    <div class="choice" id="choice">${c.n} ${s.phase==='ask'?esc(c.text):renderMarked(c)}</div>`;
+    html+=`<div class="ask truth">이 문장은 <b>옳은 말인가요?</b><span>발문이 옳은 것을 묻든 틀린 것을 묻든, 문장 자체가 맞는지만 봅니다${focusRange(c)?' · 회색 칠한 곳이 논점 자리':''}</span></div>
+    <div class="choice" id="choice">${c.n} ${s.phase==='ask'?shadeFocus(c):renderMarked(c)}</div>`;
     if(s.phase==='ask'){
       html+=`<div class="btns"><button class="btn o" data-p="O">O 옳은 말</button><button class="btn x" data-p="X">X 틀린 말</button></div>
       <p class="muted center" style="margin:10px 0 0">모르겠으면 아무거나 누르고 근거를 읽으세요</p></div>`;
@@ -376,12 +377,18 @@ function renderCard(){
       ${c.mode==='choose'&&c.opts?`<div class="opts">${c.opts.map(o=>`<div class="opt-r ${o.ok?'ok':''}"><b>${esc(o.n)}</b> ${o.ok?'<span class="tag">정답</span>':''}${esc(o.reason||'')}${o.law?`<span class="law"> · ${esc(o.law)}</span>`:''}</div>`).join('')}</div>`:''}
       <div class="reason">${c.reason?esc(c.reason):'<span class="muted">근거 준비 중. 정답 여부만 확인하세요.</span>'}</div>
       ${c.law?`<div class="law">${esc(c.law)}</div>`:''}
+      ${c.point?`<div class="box issue"><b>이 선지의 논점</b> ${esc(c.point)}</div>
+      ${Q.issue||Q.intent||Q.frame?`<details><summary>문항 전체의 논점·출제 의도 (이 선지와는 다른 주제)</summary>
+        ${Q.issue?`<div class="box issue"><b>논점</b> ${esc(Q.issue)}</div>`:''}
+        ${Q.intent?`<div class="box intent"><b>출제 의도</b> ${esc(Q.intent)}</div>`:''}
+        ${Q.frame?`<div class="note pre">${esc(Q.frame)}</div>`:''}
+        ${Q.tip?`<div class="tip">암기팁: ${esc(Q.tip)}</div>`:''}</details>`:''}`:`
       ${Q.issue?`<div class="box issue"><b>논점</b> ${esc(Q.issue)}</div>`:''}
       ${Q.intent?`<div class="box intent"><b>출제 의도</b> ${esc(Q.intent)}</div>`:''}
-      ${Q.frame?`<details open><summary>판단 틀 (헷갈리는 것 나란히 보기)</summary><div class="note pre">${esc(Q.frame)}</div></details>`:''}
+      ${Q.frame?`<details open><summary>판단 틀 (헷갈리는 것 나란히 보기)</summary><div class="note pre">${esc(Q.frame)}</div></details>`:''}`}
       ${Q.core&&!Q.issue?`<details><summary>이 문제의 핵심</summary><div class="note">${esc(Q.core)}</div></details>`:''}
       ${Q.calc?`<details><summary>계산 풀이</summary><div class="calc">${esc(Q.calc)}</div></details>`:''}
-      ${Q.tip?`<div class="tip">암기팁: ${esc(Q.tip)}</div>`:''}
+      ${Q.tip&&!c.point?`<div class="tip">암기팁: ${esc(Q.tip)}</div>`:''}
       ${Q.revision?`<div class="note">법 개정 주의: ${esc(Q.revision)}</div>`:''}
       ${bookLinks(c.q)}
       ${Q.related&&Q.related.length?`<details><summary>같은 논점 기출 ${Q.related.length}문항</summary><div class="note">${Q.related.map(x=>`${x.r}회 ${x.n}번 · ${esc(x.q)}`).join('<br>')}</div></details>`:''}
@@ -418,6 +425,33 @@ function renderMarked(c){
   if(c.swap&&c.swap.pos>=0){ const p=c.swap.pos, f=c.swap.from; return esc(t.slice(0,p))+'<span class="red">'+esc(f)+'</span>'+(c.swap.to?'<span class="ins">'+esc(c.swap.to)+'</span>':'')+esc(t.slice(p+f.length)); }
   if(c.key&&t.includes(c.key)){ const p=t.indexOf(c.key); return esc(t.slice(0,p))+'<span class="hl">'+esc(c.key)+'</span>'+esc(t.slice(p+c.key.length)); }
   return markChoice(t,c.wrong);
+}
+// 앞면 회색 음영: 해설이 칠하는 자리(바꿔친 말 또는 형광펜)를 어절 단위로 넓히고 8글자 이상으로 맞춘다.
+// 바꿔친 말은 형광펜보다 짧아서 그대로 칠하면 칠한 길이로 O/X가 티 난다.
+// 예/아니오 카드는 보기가 대개 한두 낱말이라 칠하는지 여부로 답이 기운다. 옳은 말 카드에만 쓴다.
+function focusRange(c){
+  const t=c.text||''; let a, b;
+  if(c.swap&&c.swap.pos>=0){ a=c.swap.pos; b=a+c.swap.from.length; }
+  else if(c.key&&t.includes(c.key)){ a=t.indexOf(c.key); b=a+c.key.length; }
+  else return null;
+  const sp=ch=>/\s/.test(ch), P='.,?!·)';
+  while(a>0&&!sp(t[a-1])) a--;
+  while(b<t.length&&!sp(t[b])) b++;
+  while(b>a&&P.includes(t[b-1])) b--;
+  const vis=()=>t.slice(a,b).replace(/\s/g,'').length;
+  while(vis()<8){
+    const a0=a, b0=b;
+    if(a>0){ let j=a-1; while(j>0&&sp(t[j-1])) j--; while(j>0&&!sp(t[j-1])) j--; a=j; }
+    else if(b<t.length){ let j=b; while(j<t.length&&sp(t[j])) j++; while(j<t.length&&!sp(t[j])) j++; b=j; while(b>a&&P.includes(t[b-1])) b--; }
+    if(a===a0&&b===b0) break;
+  }
+  if(a===0&&!t.slice(b).replace(/[\s.,?!·)]/g,'')) return null; // 문장 전체면 칠할 뜻이 없다
+  return [a,b];
+}
+function shadeFocus(c){
+  const t=c.text||'', r=focusRange(c);
+  if(!r) return esc(t);
+  return esc(t.slice(0,r[0]))+'<span class="focus">'+esc(t.slice(r[0],r[1]))+'</span>'+esc(t.slice(r[1]));
 }
 function fixedText(c){ const t=c.text, p=c.swap.pos; return t.slice(0,p)+c.swap.to+t.slice(p+c.swap.from.length); }
 function ansLabel(c){
