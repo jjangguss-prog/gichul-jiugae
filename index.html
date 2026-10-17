@@ -144,6 +144,8 @@ a.btn{display:block;text-align:center;text-decoration:none}
 .oxb.O{background:var(--o)}.oxb.X{background:var(--x)}.oxb.q{background:var(--line);color:var(--ink2)}
 .oxi .tx{flex:1;font-size:15.5px;line-height:1.65}
 .oxi .rd{display:inline-block;font-size:12px;color:var(--muted);font-weight:800;margin-right:5px}
+.oxi .cs{font-size:13.5px;color:var(--ink2);background:var(--bg);border-left:3px solid var(--acc);border-radius:6px;padding:5px 9px;margin:0 0 6px;line-height:1.55}
+.oxi .cs b{color:var(--acc);font-size:12px;margin-right:4px}
 .oxi .re{font-size:11px;color:var(--muted);margin-left:4px}
 .oxi .more{margin:6px 0 0 38px}
 .oxi .fx{font-size:15px;background:var(--o-bg);color:var(--ink);padding:6px 10px;border-radius:8px;line-height:1.6}
@@ -914,10 +916,12 @@ function oxStatus(o){
   if(seen) return '<span class="dot ok">맞힘</span>';
   return '';
 }
-function oxHtml(o,i){
+// 甲·乙·丙 지문은 발문의 사실관계(사례)를 위에 붙인다. 바로 위 지문과 같은 사례면 한 번만
+function caseHtml(o,prev){ return o.case&&!(prev&&prev.case===o.case)?`<div class="cs"><b>사례</b>${esc(o.case)}</div>`:''; }
+function oxHtml(o,i,prev){
   const d=o.ox==='X'&&o.fix?wordDiff(o.text,o.fix):null;
   const also=(o.also||[]).map(rlabel);
-  return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx"><span class="rd">${rlabel(o.ref)}</span><span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${o.re?'<span class="re">(보기를 문장으로)</span>':''}${oxStatus(o)}</div></div>
+  return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx">${caseHtml(o,prev)}<span class="rd">${rlabel(o.ref)}</span><span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${o.re?'<span class="re">(보기를 문장으로)</span>':''}${oxStatus(o)}</div></div>
     <div class="more">${o.ox==='X'&&o.fix?`<div class="fx">→ ${d?d.b:esc(o.fix)}</div>`:''}${o.why?`<div class="wy">${md(o.why)}</div>`:''}${o.now?`<div class="nw">법 개정: ${esc(o.now)}</div>`:''}${also.length?`<div class="al">같은 논점 기출: ${also.join(', ')}</div>`:''}</div></li>`;
 }
 function renderSection(id){
@@ -946,7 +950,7 @@ function renderSection(id){
     ${s.ox.length?`<div class="sech"><h3>기출 지문 ${s.ox.length}개 <span class="muted" style="font-size:12px;font-weight:600">(틀린 지문 ${nX})</span></h3>
       <div style="display:flex;gap:6px"><button class="chipbtn ${bk.wrong?'on':''}" id="wrongOnly">틀린 적만</button><button class="chipbtn ${st.hide?'on':''}" id="hideAns">${st.hide?'답 가림':'답 가리기'}</button></div></div>
       <p class="muted" style="font-size:12px;margin:0 0 2px">${st.hide?'지문을 누르면 정답과 근거가 열립니다.':'빨간 줄은 출제자가 바꾼 말, 초록은 바로잡은 말.'}</p>
-      <ul class="oxl ${st.hide?'hideans':''}" id="oxl">${oxs.length?oxs.map(([o,i])=>oxHtml(o,i)).join(''):'<li class="muted" style="padding:10px 0">카드에서 틀린 적 있는 지문이 없습니다.</li>'}</ul>`:''}
+      <ul class="oxl ${st.hide?'hideans':''}" id="oxl">${oxs.length?oxs.map(([o,i],k)=>oxHtml(o,i,k?oxs[k-1][0]:null)).join(''):'<li class="muted" style="padding:10px 0">카드에서 틀린 적 있는 지문이 없습니다.</li>'}</ul>`:''}
     ${s.traps&&s.traps.length?`<div class="trapbox"><b>출제자가 바꾸는 자리</b><ul style="margin:0;padding-left:18px">${s.traps.map(t=>`<li>${md(t)}</li>`).join('')}</ul></div>`:''}
     ${s.memo?`<div class="memo"><small>외우기</small>${md(s.memo)}</div>`:''}
     ${secPatHtml(id)}
@@ -1056,9 +1060,9 @@ function renderPatList(){
   if(tab==='rep') bindRep();
   if(pt.tabY){ const y=pt.tabY; pt.tabY=0; requestAnimationFrame(()=>window.scrollTo(0,y)); }
 }
-function patOxHtml(o,i){
+function patOxHtml(o,i,arr){
   const d=o.ox==='X'&&o.fix?wordDiff(o.text,o.fix):null;
-  return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx"><span class="rd">${o.rounds.join('·')}회</span><span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${oxStatus(o)}</div></div>
+  return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx">${caseHtml(o,i&&arr?arr[i-1]:null)}<span class="rd">${o.rounds.join('·')}회</span><span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${oxStatus(o)}</div></div>
     <div class="more">${o.ox==='X'&&o.fix?`<div class="fx">→ ${d?d.b:esc(o.fix)}</div>`:''}${o.why?`<div class="wy">${md(o.why)}</div>`:''}</div></li>`;
 }
 function bindOx(){
@@ -1147,6 +1151,7 @@ function renderDrill(){
   let html=`<div class="row"><span class="muted">${d.i+1} / ${d.q.length}</span><button class="btn ghost small" style="flex:0 0 auto;padding:6px 10px" id="dx">그만</button></div>
   <div class="card"><div><span class="tag">${SUBJ[r.subj]} · ${r.rounds.join('·')}회</span></div><div class="muted" style="font-size:12px;margin-top:4px">${esc(r.st||'')}</div>
     <div class="ask truth">이 문장은 <b>옳은 말인가요?</b><span>${r.rounds.length}개 회차에 나온 문장. 정오는 매번 같았다.</span></div>`;
+  if(r.case) html+=`<div class="passage"><b>사례</b> ${esc(r.case)}</div>`;
   if(d.phase==='ask'){
     html+=`<div class="choice">${esc(r.text)}</div><div class="btns"><button class="btn o" data-p="O">O 옳은 말</button><button class="btn x" data-p="X">X 틀린 말</button></div></div>`;
   } else {
