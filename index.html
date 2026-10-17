@@ -179,6 +179,35 @@ a.btn{display:block;text-align:center;text-decoration:none}
 .hit{font-size:13px;color:var(--ink2);margin-top:2px}
 .hit mark{background:#fff3a3;color:#000;border-radius:2px}
 .bookbtn{display:block;width:100%;text-align:left;border:1.5px solid var(--acc);background:var(--acc-bg);color:var(--acc);border-radius:12px;padding:10px 12px;font-size:14px;font-weight:800;margin-top:10px;cursor:pointer}
+/* ===== 패턴 ===== */
+.tag.S{background:var(--ink);color:var(--bg)}
+.patbtn{display:block;width:100%;text-align:left;border:1.5px solid var(--ink);background:var(--card);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:14px;font-weight:800;margin-top:10px;cursor:pointer}
+.patbtn span{font-weight:600;color:var(--muted)}
+.pbar2{height:6px;background:var(--line);border-radius:3px;margin-top:10px;overflow:hidden}.pbar2 i{display:block;height:100%;background:var(--o)}
+.pwhen{background:var(--acc-bg);border-radius:12px;padding:10px 14px;margin:12px 0;font-size:15px;line-height:1.6}
+.pwhen small{display:block;font-size:12px;color:var(--acc);font-weight:800;margin-bottom:2px}
+.prule{list-style:none;padding:0;margin:10px 0}
+.prule li{padding:9px 12px;margin:6px 0;border-radius:10px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--ink);font-size:16px;font-weight:600;line-height:1.65}
+.pexc{background:var(--warn-bg);border-radius:12px;padding:8px 14px;margin:10px 0;font-size:15px;line-height:1.6}
+.pexc b{display:block;color:var(--warn);font-size:13px}
+.lesson{padding:10px 0;border-bottom:1px solid var(--line)}
+.lesson:last-child{border-bottom:0}
+.lesson .k{font-size:12px;color:var(--muted);font-weight:800}
+.lesson .say{font-size:15.5px;font-weight:800;line-height:1.55;margin:2px 0}
+.lesson .so{font-size:14px;color:var(--ink2);line-height:1.6}
+.hb{display:flex;align-items:center;gap:8px;font-size:13px;margin:6px 0}
+.hb .nm{flex:0 0 108px;line-height:1.3}
+.hb .tr{flex:1;height:10px;background:var(--line);border-radius:0 5px 5px 0;overflow:hidden}
+.hb .tr i{display:block;height:100%;background:var(--acc);border-radius:0 4px 4px 0}
+.hb .pc{flex:0 0 34px;text-align:right;font-variant-numeric:tabular-nums;font-weight:800}
+.hbex{font-size:11.5px;color:var(--muted);margin:-3px 0 6px 116px;line-height:1.4}
+.choice del{color:var(--x);text-decoration:line-through;text-decoration-thickness:2px}
+.fix ins{text-decoration:none;font-weight:900;border-bottom:2px solid var(--o)}
+.vb{display:flex;gap:6px;align-items:flex-end;height:64px;margin:8px 0 2px}
+.vb div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:11px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.vb i{display:block;width:100%;background:var(--acc);border-radius:4px 4px 0 0;margin-top:2px}
+.vbl{display:flex;gap:6px;font-size:12px;color:var(--muted)}.vbl span{flex:1;text-align:center}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 </style>
 </head>
 <body>
@@ -189,6 +218,7 @@ a.btn{display:block;text-align:center;text-decoration:none}
 <main id="main"></main>
 <nav class="tabs">
   <button data-v="today" class="on"><b>▶</b>오늘</button>
+  <button data-v="pat"><b>★</b>패턴</button>
   <button data-v="book"><b>▤</b>개념</button>
   <button data-v="concepts"><b>☰</b>논점</button>
   <button data-v="exam"><b>✎</b>실전</button>
@@ -214,6 +244,8 @@ function normalize(){
   S.daily=S.daily||{};      // 이 기기의 date -> {new:0, rev:0, sec:0}
   S.confused=S.confused||{}; // id -> 처음 누른 날짜(이해 안 된 카드)
   S.book=S.book||{read:{},last:'',hide:false,subj:'civ'}; S.book.read=S.book.read||{};
+  S.pat=S.pat||{};          // 패턴 id -> 외웠다 누른 날짜
+  S.rep=S.rep||{};          // 또 나온 문장 ref -> {n:본 수, ok:맞힌 수, l:마지막 1맞음/0틀림, d:날짜}
   S.ddo=S.ddo||{};          // 다른 기기의 daily (동기화로 받음)
   S._epoch=S._epoch||0;     // '처음부터'·붙여넣어 불러오기를 누른 시각
   if(!S._ts) S._ts=legacyTs(); // 동기화 단위 -> 바뀐 시각
@@ -225,7 +257,7 @@ function normalize(){
    기기끼리 합칠 때 단위마다 더 늦게 바뀐 쪽을 쓴다. 하루 공부량은 기기마다 따로 쌓아 더하고, 판단 기록은 합집합.
    저장소는 PD의 GitHub 비공개 gist(jiugae-sync.json). 토큰은 기록과 따로 이 기기에만 둔다(설정의 복사 글에 안 섞이게). */
 const DEV=(()=>{ try{ let d=localStorage.getItem('jiugae-dev'); if(!d){ d=Math.random().toString(36).slice(2,10); localStorage.setItem('jiugae-dev',d); } return d; }catch(e){ return 'tmp'; } })();
-const NOTUNIT=['cards','exam','confused','book','log','daily','ddo','dataver','notice','_ts','_epoch'];
+const NOTUNIT=['cards','exam','confused','book','pat','rep','log','daily','ddo','dataver','notice','_ts','_epoch'];
 const UNIT_DEF={'p/minutes':'60','b/last':'""','b/hide':'false','b/subj':'"civ"'}; // 처음 값은 다른 기기 값에 진다
 let SNAP=null; // 지난 save() 때의 단위들
 function dayMs(d){ const x=Date.parse((d||'')+'T00:00:00+09:00'); return isNaN(x)?1:x; }
@@ -236,12 +268,14 @@ function units(st){
   for(const [k,v] of Object.entries(st.exam||{})) u['x/'+k]=J(v);
   for(const [k,v] of Object.entries(st.confused||{})) u['f/'+k]=J(v);
   for(const [k,v] of Object.entries(st.book||{})){ if(k==='read'){ for(const [i,d] of Object.entries(v||{})) u['r/'+i]=J(d); } else u['b/'+k]=J(v); }
+  for(const [k,v] of Object.entries(st.pat||{})) u['t/'+k]=J(v);
+  for(const [k,v] of Object.entries(st.rep||{})) u['e/'+k]=J(v);
   for(const [k,v] of Object.entries(st)) if(!NOTUNIT.includes(k)) u['p/'+k]=J(v);
   return u;
 }
 function setUnit(key,json){
   const p=key[0], k=key.slice(2);
-  const o=p==='c'?S.cards:p==='x'?S.exam:p==='f'?S.confused:p==='r'?S.book.read:p==='b'?S.book:S;
+  const o=p==='c'?S.cards:p==='x'?S.exam:p==='f'?S.confused:p==='r'?S.book.read:p==='b'?S.book:p==='t'?S.pat:p==='e'?S.rep:S;
   if(json===undefined) delete o[k]; else o[k]=JSON.parse(json);
 }
 // 동기화 전부터 있던 기록: 카드는 마지막 본 날짜(같은 날이면 본 수), 나머지는 적힌 날짜로 시각을 매긴다
@@ -251,7 +285,8 @@ function legacyTs(){
     const v=JSON.parse(j), p=key[0];
     ts[key]=p==='c'?(v.last?dayMs(v.last)+Math.min(v.seen||0,999):1)
       :p==='x'?(v&&v.date?dayMs(v.date):1)
-      :(p==='f'||p==='r')&&typeof v==='string'?dayMs(v)
+      :(p==='f'||p==='r'||p==='t')&&typeof v==='string'?dayMs(v)
+      :p==='e'&&v&&v.d?dayMs(v.d)+Math.min(v.n||0,999)
       :UNIT_DEF[key]===j?0:1;
   }
   return ts;
@@ -421,7 +456,7 @@ function header(){
   document.getElementById('subtitle').textContent=`D-${daysLeft()} · 남은 카드 ${total-del} / 지운 카드 ${del}`;
   document.getElementById('bar').style.width=(100*del/total).toFixed(1)+'%';
 }
-function render(){ header(); window.scrollTo(0,0); ({today:renderToday, book:renderBook, concepts:renderConcepts, exam:renderExam, stats:renderStats, settings:renderSettings})[view](); }
+function render(){ header(); window.scrollTo(0,0); ({today:renderToday, pat:renderPat, book:renderBook, concepts:renderConcepts, exam:renderExam, stats:renderStats, settings:renderSettings})[view](); }
 
 /* ===== 오늘 ===== */
 function renderToday(){
@@ -430,6 +465,7 @@ function renderToday(){
   const acc=accuracy();
   const notice=S.notice; if(notice){ delete S.notice; save(); }
   main.innerHTML=`${notice?`<div class="card note" style="margin-top:0">${esc(notice)}</div>`:''}
+  ${patTodayHtml()}
   <div class="card">
     <div class="row"><b style="font-size:20px">오늘 ${S.minutes}분</b><span class="muted">${t}</span></div>
     <div class="stat">
@@ -465,6 +501,7 @@ function renderToday(){
       <li>'근거까지'가 <b>다른 날 두 번</b> 쌓이면 지울지 묻는다. 지우는 건 PD가 누른다.</li>
       <li>지운 카드는 하루 3장씩 몰래 다시 나온다. 틀리면 되살아난다.</li>
       <li><b>개념</b> 탭은 기출 지문으로 쓴 개념서다. 카드 뒷면의 📖 버튼을 누르면 그 논점 섹션이 바로 열린다.</li>
+      <li><b>패턴</b> 탭은 여러 회차 선지가 한 규칙으로 갈리는 자리만 모은 것이다. 처음이면 여기부터 읽고, 카드 뒷면의 ★ 버튼으로 그 패턴에 바로 간다.</li>
     </ol>
   </div>`;
   main.querySelector('#start').onclick=()=>startSession(info.q);
@@ -472,6 +509,8 @@ function renderToday(){
   main.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ S.minutes=+b.dataset.m; save(); render(); });
   main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from=null; goView('book'); });
   const tb=main.querySelector('#toBook'); if(tb) tb.onclick=()=>{ bk.sec=null; bk.memo=false; bk.from=null; goView('book'); };
+  main.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>openPat(b.dataset.pat,null));
+  const tp=main.querySelector('#toPat'); if(tp) tp.onclick=()=>{ pt.id=null; pt.memo=false; pt.drill=null; goView('pat'); };
 }
 // 카드에서 많이 틀린 논점을 개념서 섹션으로 묶어 보여 준다
 function weakHtml(){
@@ -565,7 +604,7 @@ function renderCard(){
       ${Q.calc?`<details><summary>계산 풀이</summary><div class="calc">${esc(Q.calc)}</div></details>`:''}
       ${Q.tip&&!c.point?`<div class="tip">암기팁: ${esc(Q.tip)}</div>`:''}
       ${Q.revision?`<div class="note">법 개정 주의: ${esc(Q.revision)}</div>`:''}
-      ${bookLinks(c.q)}
+      ${patLinks(c.id)}${bookLinks(c.q)}
       ${Q.related&&Q.related.length?`<details><summary>같은 논점 기출 ${Q.related.length}문항</summary><div class="note">${Q.related.map(x=>`${x.r}회 ${x.n}번 · ${esc(x.q)}`).join('<br>')}</div></details>`:''}
       <details><summary>문제 전체 보기</summary><div class="note">${esc(Q.question)}${Q.passage&&Q.passage.length?'\n'+esc(Q.passage.join('\n')):''}<br>${Q.choices.map((t,i)=>`${CIRC[i]} ${esc(t)}`).join('<br>')}<br><b>정답 ${Q.all_correct?'모두 정답(이의신청으로 전항정답 처리)':CIRC[Q.answer-1]}</b></div></details>
     </div>
@@ -594,6 +633,7 @@ function renderCard(){
   const cb=main.querySelector('#confused'); if(cb) cb.onclick=()=>{ s.confused=true; if(!S.confused[c.id]) S.confused[c.id]=today(); save(); renderCard(); const h=document.getElementById('help'); if(h) h.scrollIntoView({behavior:'smooth',block:'center'}); };
   const cq=main.querySelector('#copyQ'); if(cq) cq.onclick=()=>copyText(askText(c,Q));
   main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from='card'; goView('book'); });
+  main.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>openPat(b.dataset.pat,'card'));
 }
 function renderMarked(c){
   const t=c.text||'';
@@ -892,6 +932,7 @@ function renderSection(id){
   const nX=s.ox.filter(o=>o.ox==='X').length;
   main.innerHTML=`<div class="reader">
     ${bk.from==='card'?`<div class="backbar"><button class="btn n small" id="backCard">← 카드로 돌아가기</button></div>`:''}
+    ${bk.from==='pat'?`<div class="backbar"><button class="btn n small" id="backPat">← 패턴으로 돌아가기</button></div>`:''}
     <div class="row"><button class="linkbtn" id="toToc">‹ 목차</button><span class="muted" style="font-size:12px">${k+1} / ${list.length}</span></div>
     <div class="crumb">${s.ch[0]==='C'?'민법':'학개론'} › ${esc(ch.title)}</div>
     <h2 class="st">${esc(s.title)}</h2>
@@ -908,12 +949,15 @@ function renderSection(id){
       <ul class="oxl ${st.hide?'hideans':''}" id="oxl">${oxs.length?oxs.map(([o,i])=>oxHtml(o,i)).join(''):'<li class="muted" style="padding:10px 0">카드에서 틀린 적 있는 지문이 없습니다.</li>'}</ul>`:''}
     ${s.traps&&s.traps.length?`<div class="trapbox"><b>출제자가 바꾸는 자리</b><ul style="margin:0;padding-left:18px">${s.traps.map(t=>`<li>${md(t)}</li>`).join('')}</ul></div>`:''}
     ${s.memo?`<div class="memo"><small>외우기</small>${md(s.memo)}</div>`:''}
+    ${secPatHtml(id)}
     <details><summary>이 섹션의 기출 문항 ${s.refs.length}개</summary><div style="margin-top:6px">${s.refs.map(q=>`<div class="qref"><b>${rlabel(q)}</b> ${esc(B.qs[q]||'')}</div>`).join('')}</div></details>
     <div class="btns" style="margin-top:14px">${live.length?`<button class="btn n small" id="runCards">이 논점 카드 ${live.length}장 돌리기</button>`:`<button class="btn ghost small" disabled>${qcards.length?'이 논점 카드는 다 지웠습니다':'카드는 32~36회만 있습니다'}</button>`}</div>
     <div class="btns" style="margin-top:8px"><button class="btn ${st.read[id]?'ghost':'o'} small" id="readBtn">${st.read[id]?'읽음 표시 지우기':'✓ 다 읽었다'}</button></div>
     <div class="pn">${prev?`<button data-go="${prev.id}"><span>‹ 이전</span>${esc(prev.title)}</button>`:'<span style="flex:1"></span>'}${next?`<button class="nx" data-go="${next.id}" data-mark="1"><span>다음 ›</span>${esc(next.title)}</button>`:'<span style="flex:1"></span>'}</div>
   </div>`;
   const bc=main.querySelector('#backCard'); if(bc) bc.onclick=()=>{ bk.from=null; bk.sec=null; goView('today'); };
+  const bp=main.querySelector('#backPat'); if(bp) bp.onclick=()=>{ bk.from=null; bk.sec=null; goView('pat'); };
+  main.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>{ bk.from=null; openPat(b.dataset.pat,null); });
   main.querySelector('#toToc').onclick=()=>{ bk.sec=null; bk.from=null; bk.open[s.ch]=true; render(); };
   main.querySelector('#readBtn').onclick=()=>{ if(st.read[id]) delete st.read[id]; else st.read[id]=today(); save(); const y=window.scrollY; renderSection(id); window.scrollTo(0,y); };
   const hb=main.querySelector('#hideAns'); if(hb) hb.onclick=()=>{ st.hide=!st.hide; save(); const y=window.scrollY; renderSection(id); window.scrollTo(0,y); };
@@ -942,6 +986,203 @@ function renderMemos(){
   main.querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>openSection(b.dataset.sec));
 }
 
+/* ===== 패턴 =====
+   patterns.json(앱/패턴_만들기.py): 선지 읽는 법(데이터), 과목별 '이것만' 패턴, 두 회차 이상 또 나온 문장.
+   기록: S.pat(외웠다 누른 날짜), S.rep(또 나온 문장 O/X 결과). 동기화 단위는 t/, e/ */
+let P=null, patLoading=null, C2P={};
+const SUBJ={civ:'민법',rea:'학개론'};
+const pt={id:null, tab:'civ', from:null, hide:true, memo:false, rf:{subj:'all',min:3}, drill:null, tabY:0};
+function loadPat(){
+  if(P) return Promise.resolve(P);
+  if(!patLoading) patLoading=fetch('patterns.json?v='+Date.now()).then(r=>r.json()).then(d=>{ P=d; C2P={}; for(const p of P.patterns) for(const id of p.cards) (C2P[id]=C2P[id]||[]).push(p.id); return P; }).catch(e=>{ patLoading=null; throw e; });
+  return patLoading;
+}
+function patById(id){ return P&&P.patterns.find(p=>p.id===id); }
+function patsOf(subj){ return P.patterns.filter(p=>p.subj===subj); }
+function patLive(p){ if(!D) return []; const ids=new Set(p.cards); return D.cards.filter(c=>ids.has(c.id)&&cardState(c.id).st!==2); }
+function patLinks(cid){
+  if(!P||!C2P[cid]) return '';
+  return C2P[cid].slice(0,2).map(id=>`<button class="patbtn" data-pat="${id}">★ 패턴 · ${esc(patById(id).title)}</button>`).join('');
+}
+function openPat(id,from){ pt.id=id; pt.from=from||null; pt.memo=false; pt.drill=null; goView('pat'); }
+function runCards(q){ view='today'; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.v==='today')); startSession(q); }
+function keepY(f){ const y=window.scrollY; f(); window.scrollTo(0,y); }
+function renderPat(){
+  if(!P){
+    main.innerHTML='<div class="card muted">패턴 불러오는 중…</div>';
+    loadPat().then(()=>{ if(view==='pat') renderPat(); }).catch(()=>{ if(view==='pat') main.innerHTML='<div class="card">패턴(patterns.json)을 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
+    return;
+  }
+  if(pt.drill) return renderDrill();
+  if(pt.id&&patById(pt.id)) return renderPatDetail(pt.id);
+  if(pt.memo) return renderPatMemos();
+  renderPatList();
+}
+// 선지 읽는 법: 출제자가 틀린 선지를 만든 방식, 말버릇별 O/X 쏠림, 정답 번호 분포
+function readingHtml(){
+  const R=P.reading, sw=R.swaps, c1=sw.civ.cats[0], r1=sw.rea.cats[0], r2=sw.rea.cats[1];
+  const bars=v=>v.cats.map(c=>`<div class="hb" title="${esc(c.name)} ${c.n}개 (${c.pct}%)"><span class="nm">${esc(c.name)}</span><span class="tr"><i style="width:${c.pct}%"></i></span><span class="pc">${c.pct}%</span></div>${c.ex.length?`<div class="hbex">${c.ex.map(esc).join(' · ')}</div>`:''}`).join('');
+  const ap=R.answer_pos, tot=[0,1,2,3,4].map(i=>ap.civ[i]+ap.rea[i]), N=tot.reduce((a,b)=>a+b,0), mx=Math.max(...tot);
+  const words=R.words.map(w=>{ const lean=w.pct_o>=w.base_o, p=lean?w.pct_o:100-w.pct_o, b=lean?w.base_o:100-w.base_o;
+    return `<div class="lesson"><div class="k">${SUBJ[w.subj]} · 선지 ${w.n}개</div><div class="say">${esc(w.label)} → <span style="color:var(--${lean?'o':'x'})">${lean?'O':'X'} ${p}%</span> <span class="muted" style="font-weight:600">(보통 ${b}%)</span></div><div class="so">${esc(w.note)}</div></div>`; }).join('');
+  return `<div class="card"><b>선지 읽는 법</b> <span class="muted">기출 선지 ${R.n_stm}개, 출제자가 바꾼 말 ${sw.civ.n+sw.rea.n}개를 센 결과</span>
+    <div class="lesson"><div class="k">민법 틀린 선지 ${sw.civ.n}개</div><div class="say">${c1.pct}%는 ${esc(c1.name)}다 (${esc(c1.hint)}).</div><div class="so">그래서 민법은 '이 상황이면 <b>된다 / 안 된다</b>' 결론을 외운다. 선지는 끝의 결론부터 본다.</div>
+      <details><summary>바꾸는 방식 전부 보기</summary>${bars(sw.civ)}</details></div>
+    <div class="lesson"><div class="k">학개론 틀린 선지 ${sw.rea.n}개</div><div class="say">${r1.pct}%는 ${esc(r1.name)}, ${r2.pct}%는 ${esc(r2.name)}다.</div><div class="so">그래서 학개론은 <b>짝꿍 용어 표</b>와 <b>방향(오르나 내리나)</b>을 외운다. 아래 학개론 패턴이 그 표다.</div>
+      <details><summary>바꾸는 방식 전부 보기</summary>${bars(sw.rea)}</details></div>
+    <div class="lesson"><div class="k">말버릇 ${R.words.length}가지</div><div class="say">어떤 말투는 O나 X로 쏠린다.</div><div class="so">규칙은 아니다. 모르는 선지에서 먼저 의심할 곳을 고르는 데만 쓴다.</div>
+      <details><summary>말버릇별 O/X 비율 보기</summary>${words}</details></div>
+    <div class="lesson"><div class="k">정답 번호 ${N}문항</div><div class="say">①~⑤가 고르게 나온다(각 ${Math.round(100*Math.min(...tot)/N)}~${Math.round(100*mx/N)}%). 찍기 번호는 없다.</div><div class="so">모르면 아는 선지부터 지우고 남은 것 중에 고른다. 선지 길이로 찍어도 20%에서 크게 나아지지 않는다.</div>
+      <div class="vb">${tot.map((n,i)=>`<div title="${CIRC[i]} ${n}문항"><span>${n}</span><i style="height:${Math.round(40*n/mx)}px"></i></div>`).join('')}</div><div class="vbl">${tot.map((n,i)=>`<span>${CIRC[i]}</span>`).join('')}</div></div>
+  </div>`;
+}
+function renderPatList(){
+  const all=P.patterns, nDone=all.filter(p=>S.pat[p.id]).length, tab=pt.tab;
+  let html=`<div class="card"><div class="row"><b style="font-size:19px">이것만 먼저</b><span class="muted">외움 ${nDone} / ${all.length}</span></div>
+    <p style="margin:6px 0 0;font-size:15px;line-height:1.6">10년 800문항에서 <b>매번 같은 방식으로 정오가 갈린 자리</b>만 모았다. 하나 외우면 여러 회차 선지가 한 번에 풀린다. 카드 돌리기 전에 <b>S급부터</b> 읽는다.</p>
+    <div class="pbar2"><i style="width:${all.length?Math.round(100*nDone/all.length):0}%"></i></div></div>
+  ${readingHtml()}
+  <div class="seg">${[['civ',`민법 ${patsOf('civ').length}`],['rea',`학개론 ${patsOf('rea').length}`],['rep','또 나온 문장']].map(([k,l])=>`<button data-tab="${k}" class="${tab===k?'on':''}">${l}</button>`).join('')}</div>`;
+  if(tab==='rep') html+=repHtml();
+  else {
+    const L=patsOf(tab);
+    html+=L.length?`<div class="card" style="padding:2px 12px">${L.map(p=>`<button class="srow ${S.pat[p.id]?'read':''}" data-pid="${p.id}"><span class="ck">${S.pat[p.id]?'✓':''}</span><span class="tag ${p.level}">${p.level}</span><span class="t">${esc(p.title)}</span><span class="f">${p.f10}회</span></button>`).join('')}</div>
+    <div class="row" style="margin:0 2px"><span class="muted" style="font-size:12px">S = 10년 중 7개 회차 이상, A = 4~6회. 숫자는 출제 회차 수.</span><button class="linkbtn" id="pmemo">외우기 모음 ›</button></div>`:'<div class="card muted">이 과목 패턴은 준비 중입니다.</div>';
+  }
+  main.innerHTML=html;
+  main.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{ pt.tab=b.dataset.tab; keepY(renderPatList); });
+  main.querySelectorAll('[data-pid]').forEach(b=>b.onclick=()=>{ pt.tabY=window.scrollY; pt.id=b.dataset.pid; pt.from=null; render(); });
+  const pm=main.querySelector('#pmemo'); if(pm) pm.onclick=()=>{ pt.tabY=window.scrollY; pt.memo=true; render(); };
+  if(tab==='rep') bindRep();
+  if(pt.tabY){ const y=pt.tabY; pt.tabY=0; requestAnimationFrame(()=>window.scrollTo(0,y)); }
+}
+function patOxHtml(o,i){
+  const d=o.ox==='X'&&o.fix?wordDiff(o.text,o.fix):null;
+  return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx"><span class="rd">${o.rounds.join('·')}회</span><span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${oxStatus(o)}</div></div>
+    <div class="more">${o.ox==='X'&&o.fix?`<div class="fx">→ ${d?d.b:esc(o.fix)}</div>`:''}${o.why?`<div class="wy">${md(o.why)}</div>`:''}</div></li>`;
+}
+function bindOx(){
+  const ol=main.querySelector('#oxl'); if(!ol) return;
+  ol.querySelectorAll('.oxi').forEach(li=>{ if(!pt.hide) showDiff(li,true); li.onclick=()=>{ if(!pt.hide) return; li.classList.toggle('open'); showDiff(li,li.classList.contains('open')); }; });
+}
+function renderPatDetail(id){
+  const p=patById(id), list=patsOf(p.subj), k=list.indexOf(p), prev=list[k-1], next=list[k+1], live=patLive(p);
+  main.innerHTML=`<div class="reader">
+    ${pt.from==='card'?`<div class="backbar"><button class="btn n small" id="backCard">← 카드로 돌아가기</button></div>`:''}
+    <div class="row"><button class="linkbtn" id="toList">‹ 패턴 목록</button><span class="muted" style="font-size:12px">${SUBJ[p.subj]} ${k+1} / ${list.length}</span></div>
+    <h2 class="st">${esc(p.title)}</h2>
+    <div><span class="tag ${p.level}">${p.level}급</span><span class="tag">10년 ${p.f10}회 출제</span>${S.pat[id]?'<span class="tag" style="background:var(--o-bg);color:var(--o)">외움</span>':''}</div>
+    <div class="pwhen"><small>이런 문제가 나오면</small>${md(p.when)}</div>
+    <ul class="prule">${p.rule.map(r=>`<li>${md(r)}</li>`).join('')}</ul>
+    ${p.table?tableHtml(p.table):''}
+    ${p.exceptions&&p.exceptions.length?`<div class="pexc"><b>예외</b>${p.exceptions.map(md).join('<br>')}</div>`:''}
+    <div class="sech"><h3>기출로 확인 ${p.ex.length}개</h3><button class="chipbtn ${pt.hide?'on':''}" id="hideAns">${pt.hide?'답 가림':'답 가리기'}</button></div>
+    <p class="muted" style="font-size:12px;margin:0 0 2px">${pt.hide?'위 규칙으로 O/X를 먼저 정하고 지문을 눌러 확인하세요.':'빨간 줄은 출제자가 바꾼 말, 초록은 바로잡은 말.'}</p>
+    <ul class="oxl ${pt.hide?'hideans':''}" id="oxl">${p.ex.map(patOxHtml).join('')}</ul>
+    <div class="trapbox"><b>출제자가 바꾸는 자리</b>${md(p.trap)}</div>
+    <div class="memo"><small>외우기</small>${md(p.memo)}</div>
+    <div class="btns">${live.length?`<button class="btn n small" id="runCards">이 패턴 카드 ${live.length}장 돌리기</button>`:`<button class="btn ghost small" disabled>${p.cards.length?'이 패턴 카드는 다 지웠습니다':'카드는 32~36회만 있습니다'}</button>`}</div>
+    <div class="btns" style="margin-top:8px"><button class="btn ${S.pat[id]?'ghost':'o'} small" id="doneBtn">${S.pat[id]?'외움 표시 지우기':'✓ 외웠다'}</button></div>
+    <details style="margin-top:12px"><summary>개념서에서 더 읽기 (섹션 ${p.secs.length}개)</summary>${p.secs.map(s=>`<button class="bookbtn" data-book="${s.id}"><span class="tag ${s.grade}" style="font-size:11px">${s.grade}</span>${esc(s.title)} <span style="font-weight:600">· ${s.f10}회</span></button>`).join('')}</details>
+    <div class="pn">${prev?`<button data-go="${prev.id}"><span>‹ 이전</span>${esc(prev.title)}</button>`:'<span style="flex:1"></span>'}${next?`<button class="nx" data-go="${next.id}"><span>다음 ›</span>${esc(next.title)}</button>`:'<span style="flex:1"></span>'}</div>
+  </div>`;
+  const bc=main.querySelector('#backCard'); if(bc) bc.onclick=()=>{ pt.from=null; pt.id=null; goView('today'); };
+  main.querySelector('#toList').onclick=()=>{ pt.id=null; pt.from=null; pt.tab=p.subj; render(); };
+  main.querySelector('#hideAns').onclick=()=>{ pt.hide=!pt.hide; keepY(()=>renderPatDetail(id)); };
+  bindOx();
+  const rc=main.querySelector('#runCards'); if(rc) rc.onclick=()=>{ pt.from=null; runCards(live); };
+  main.querySelector('#doneBtn').onclick=()=>{ if(S.pat[id]) delete S.pat[id]; else S.pat[id]=today(); save(); keepY(()=>renderPatDetail(id)); };
+  main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from='pat'; goView('book'); });
+  main.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{ pt.id=b.dataset.go; pt.from=null; render(); });
+}
+function renderPatMemos(){
+  let html=`<div class="reader"><div class="row"><button class="linkbtn" id="toList">‹ 패턴 목록</button></div>
+    <h2 class="st">패턴 외우기 모음</h2><p class="muted" style="margin:0 0 8px">시험 전날과 당일 아침에 읽는 한 줄씩. 제목을 누르면 그 패턴으로 갑니다.</p>`;
+  for(const subj of ['civ','rea']){
+    const L=patsOf(subj); if(!L.length) continue;
+    html+=`<div class="card"><b>${SUBJ[subj]}</b>${L.map(p=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><button class="linkbtn" data-pid="${p.id}" style="font-size:13px;text-align:left"><span class="tag ${p.level}" style="font-size:11px">${p.level}</span>${esc(p.title)}</button><div style="font-size:15px;line-height:1.6;font-weight:700">${md(p.memo)}</div></div>`).join('')}</div>`;
+  }
+  main.innerHTML=html+'</div>';
+  main.querySelector('#toList').onclick=()=>{ pt.memo=false; render(); };
+  main.querySelectorAll('[data-pid]').forEach(b=>b.onclick=()=>{ pt.memo=false; pt.id=b.dataset.pid; render(); });
+}
+// 또 나온 문장: 두 회차 이상 나온 지문. O/X 퀴즈 또는 목록
+function repPool(){ const f=pt.rf; return P.repeats.filter(r=>(f.subj==='all'||r.subj===f.subj)&&r.rounds.length>=f.min); }
+function repLast(r){ const s=S.rep[r.ref]; return s?s.l:-1; }
+function repHtml(){
+  const f=pt.rf, pool=repPool(), known=pool.filter(r=>repLast(r)===1).length, missed=pool.filter(r=>repLast(r)===0).length;
+  const n3=P.repeats.filter(r=>r.rounds.length>=3).length, todo=pool.length-known;
+  return `<div class="card"><b>또 나온 문장</b>
+    <p style="margin:6px 0 0;font-size:15px;line-height:1.6">10년 동안 같은 문장이 두 번 이상 나왔다(세 번 이상 ${n3}개). <b>정오도 매번 같았다.</b> 이 문장이 보이면 생각하지 말고 바로 O/X.</p>
+    <div class="chips">${[['all','둘 다'],['civ','민법'],['rea','학개론']].map(([k,l])=>`<button class="chipbtn ${f.subj===k?'on':''}" data-rs="${k}">${l}</button>`).join('')}<span style="width:6px"></span>${[[3,'3회 이상'],[2,'2회 이상']].map(([k,l])=>`<button class="chipbtn ${f.min===k?'on':''}" data-rm="${k}">${l}</button>`).join('')}</div>
+    <div class="stat"><div><b>${pool.length}</b><span>문장</span></div><div><b>${known}</b><span>마지막에 맞힘</span></div><div><b>${missed}</b><span>마지막에 틀림</span></div></div>
+    <div class="btns"><button class="btn n small" id="repGo">▶ O/X 퀴즈 ${todo||pool.length}개</button></div>
+    <div class="btns" style="margin-top:8px">${missed?`<button class="btn x small" id="repMiss">틀린 것만 ${missed}개</button>`:''}<button class="btn ghost small" id="repList">목록으로 읽기</button></div></div>`;
+}
+function bindRep(){
+  main.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{ pt.rf.subj=b.dataset.rs; keepY(renderPatList); });
+  main.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ pt.rf.min=+b.dataset.rm; keepY(renderPatList); });
+  const pool=repPool();
+  main.querySelector('#repGo').onclick=()=>{ const q=pool.filter(r=>repLast(r)!==1); startDrill(q.length?q:pool,'quiz'); };
+  const rm=main.querySelector('#repMiss'); if(rm) rm.onclick=()=>startDrill(pool.filter(r=>repLast(r)===0),'quiz');
+  main.querySelector('#repList').onclick=()=>startDrill(pool,'list');
+}
+function startDrill(q,mode){ pt.drill={q, i:0, phase:'ask', pick:null, mode, ok:0}; window.scrollTo(0,0); renderDrill(); }
+function renderDrill(){
+  const d=pt.drill, quit=()=>{ pt.drill=null; pt.tab='rep'; render(); };
+  if(d.mode==='list'){
+    main.innerHTML=`<div class="reader"><div class="row"><button class="linkbtn" id="dx">‹ 패턴</button><span class="muted" style="font-size:12px">${d.q.length}개</span></div>
+      <h2 class="st">또 나온 문장</h2>
+      <div class="row" style="margin-bottom:4px"><span class="muted" style="font-size:12px">${pt.hide?'지문을 누르면 정답과 근거가 열립니다.':'빨간 줄은 바꾼 말, 초록은 바로잡은 말.'}</span><button class="chipbtn ${pt.hide?'on':''}" id="hideAns">${pt.hide?'답 가림':'답 가리기'}</button></div>
+      <ul class="oxl ${pt.hide?'hideans':''}" id="oxl">${d.q.map(patOxHtml).join('')}</ul></div>`;
+    main.querySelector('#dx').onclick=quit;
+    main.querySelector('#hideAns').onclick=()=>{ pt.hide=!pt.hide; keepY(renderDrill); };
+    bindOx(); return;
+  }
+  if(d.i>=d.q.length){
+    main.innerHTML=`<div class="card center"><div class="verdict ${d.ok===d.q.length?'ok':''}">${d.q.length}개 중 ${d.ok}개 맞힘</div><p class="muted">틀린 문장은 '틀린 것만'으로 다시 돌릴 수 있습니다.</p><div class="btns"><button class="btn n" id="dx">끝</button></div></div>`;
+    main.querySelector('#dx').onclick=quit; return;
+  }
+  const r=d.q[d.i];
+  let html=`<div class="row"><span class="muted">${d.i+1} / ${d.q.length}</span><button class="btn ghost small" style="flex:0 0 auto;padding:6px 10px" id="dx">그만</button></div>
+  <div class="card"><div><span class="tag">${SUBJ[r.subj]} · ${r.rounds.join('·')}회</span></div><div class="muted" style="font-size:12px;margin-top:4px">${esc(r.st||'')}</div>
+    <div class="ask truth">이 문장은 <b>옳은 말인가요?</b><span>${r.rounds.length}개 회차에 나온 문장. 정오는 매번 같았다.</span></div>`;
+  if(d.phase==='ask'){
+    html+=`<div class="choice">${esc(r.text)}</div><div class="btns"><button class="btn o" data-p="O">O 옳은 말</button><button class="btn x" data-p="X">X 틀린 말</button></div></div>`;
+  } else {
+    const ok=d.pick===r.ox, df=r.ox==='X'&&r.fix?wordDiff(r.text,r.fix):null;
+    html+=`<div class="choice">${df?df.a:esc(r.text)}</div>
+      <div class="verdict ${ok?'ok':'bad'}">${ok?'맞음':'틀림'} · 정답은 ${r.ox==='O'?'O 옳은 말':'X 틀린 말'}</div>
+      ${r.ox==='X'&&r.fix?`<div class="fix">바로잡기: ${df?df.b:esc(r.fix)}</div>`:''}
+      ${r.why?`<div class="reason">${md(r.why)}</div>`:''}
+      <button class="bookbtn" data-book="${r.sec}">📖 개념서에서 읽기 · ${esc(r.st||'')}</button>
+      <div class="btns" style="margin-top:12px"><button class="btn n" id="dn">다음</button></div></div>`;
+  }
+  main.innerHTML=html;
+  main.querySelector('#dx').onclick=quit;
+  main.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+    d.pick=b.dataset.p; d.phase='show'; const ok=d.pick===r.ox; if(ok) d.ok++;
+    const s=S.rep[r.ref]||{n:0,ok:0}; S.rep[r.ref]={n:(s.n||0)+1, ok:(s.ok||0)+(ok?1:0), l:ok?1:0, d:today()}; save(); renderDrill();
+  });
+  const dn=main.querySelector('#dn'); if(dn) dn.onclick=()=>{ d.i++; d.phase='ask'; d.pick=null; window.scrollTo(0,0); renderDrill(); };
+  main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from='pat'; goView('book'); });
+}
+// 오늘 탭: 아직 안 외운 패턴이 있으면 맨 위에 띄운다
+function patTodayHtml(){
+  if(!P||!P.patterns.length) return '';
+  const all=P.patterns, n=all.filter(p=>S.pat[p.id]).length; if(n>=all.length) return '';
+  const left=all.filter(p=>!S.pat[p.id]), nx=left.find(p=>p.level==='S')||left[0];
+  return `<div class="card" style="border:1.5px solid var(--ink)"><div class="row"><b>★ 먼저: 이것만 패턴</b><span class="muted">외움 ${n} / ${all.length}</span></div>
+    <p class="muted" style="margin:4px 0 8px">여러 회차 선지가 한 규칙으로 갈리는 자리 ${all.length}개. 하나에 2~3분.<br>다음: ${esc(nx.title)}</p>
+    <div class="btns"><button class="btn n small" data-pat="${nx.id}">다음 패턴 읽기</button><button class="btn ghost small" id="toPat">패턴 목록</button></div></div>`;
+}
+// 개념서 섹션 → 그 섹션이 들어간 패턴
+function secPatHtml(sid){
+  if(!P) return '';
+  const L=P.patterns.filter(p=>p.secs.some(s=>s.id===sid)); if(!L.length) return '';
+  return L.slice(0,3).map(p=>`<button class="patbtn" data-pat="${p.id}">★ 이 논점이 든 패턴 · ${esc(p.title)}</button>`).join('');
+}
+
 /* ===== 시작 ===== */
 function migrate(){
   let n=0; const t=today(); const byId={}; D.cards.forEach(c=>byId[c.id]=c);
@@ -953,7 +1194,7 @@ function migrate(){
   if(n){ S.notice=`카드 ${n}장의 질문 방식이나 정답이 바뀌어 그 카드만 기록을 다시 시작합니다.`; }
   save();
 }
-fetch('cards.json?v='+Date.now()).then(r=>r.json()).then(d=>{ D=d; migrate(); render(); syncUI(); syncNow(); loadBook().then(()=>{ if(view==='today'&&!session) renderToday(); }).catch(()=>{}); }).catch(e=>{ main.innerHTML='<div class="card">카드 자료(cards.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
+fetch('cards.json?v='+Date.now()).then(r=>r.json()).then(d=>{ D=d; migrate(); render(); syncUI(); syncNow(); loadBook().then(()=>{ if(view==='today'&&!session) renderToday(); }).catch(()=>{}); loadPat().then(()=>{ if(view==='today'&&!session) renderToday(); }).catch(()=>{}); }).catch(e=>{ main.innerHTML='<div class="card">카드 자료(cards.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 </script>
 </body>
