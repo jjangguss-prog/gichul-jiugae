@@ -81,6 +81,8 @@ h2{font-size:17px;margin:14px 0 8px}
 .ask{margin:12px 0 2px;font-size:15px;padding:8px 10px;border-radius:10px}
 .ask span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .ask.truth{background:var(--o-bg)} .ask.pick{background:var(--acc-bg)}
+.ask.member{background:var(--acc-bg);font-size:18px;font-weight:800;line-height:1.45}
+.opts{margin:8px 0}.opt-r{font-size:14px;padding:6px 0;border-bottom:1px solid var(--line)}.opt-r.ok{color:var(--o)}
 a.btn{display:block;text-align:center;text-decoration:none}
 .card.help{border-color:var(--acc)} .card.easy{border-color:var(--o)}
 .ins{color:var(--o);font-weight:800;background:var(--o-bg);border-radius:4px;padding:0 4px;margin-left:3px}
@@ -195,7 +197,7 @@ function renderToday(){
     <b>하는 법</b>
     <ol style="padding-left:18px;margin:6px 0;font-size:15px">
       <li><b>옳은 말 카드</b>: 문장이 맞으면 <b>O</b>, 틀리면 <b>X</b>. 발문이 '틀린 것은?'이어도 문장 자체만 본다.</li>
-      <li><b>고르기 카드</b>(해당하는 것·아닌 것을 묻는 문제): 발문대로 이 보기를 <b>고르나 / 안 고르나</b>.</li>
+      <li><b>예/아니오 카드</b>(해당하는 것·아닌 것을 묻는 문제): 위에 적힌 질문에 <b>예 / 아니오</b>만 답한다. 발문의 '않는 것'은 신경 쓰지 않는다.</li>
       <li>근거를 읽는다. 이해 안 되면 🤔 버튼을 누르고 넘어간다(내일 다시 나온다).</li>
       <li>맞혔으면 "근거까지 알았다 / 답만 맞혔다"를 솔직하게 고른다.</li>
       <li>'근거까지'가 <b>다른 날 두 번</b> 쌓이면 지울지 묻는다. 지우는 건 PD가 누른다.</li>
@@ -246,20 +248,19 @@ function renderCard(){
   <div class="card">
     <div><span class="tag ${Q.grade}">${Q.grade}급</span><span class="tag">${subj} ${Q.round}회 ${Q.no}번</span>${isAudit?'<span class="tag" style="background:var(--line);color:var(--ink2)">지운 카드 검사</span>':''}${st.st===1?`<span class="muted" style="font-size:12px">근거까지 ${st.k.length}/2</span>`:''}</div>
     <div class="muted" style="font-size:12px;margin-top:4px">${esc(Q.concept)}</div>
-    <div class="qstem">${esc(Q.question)}</div>
+    ${c.mode==='member'?(Q.facts?`<div class="qstem">${esc(Q.facts)}</div>`:''):`<div class="qstem">${esc(Q.question)}</div>`}
     ${Q.passage&&Q.passage.length&&(c.kind==='calc'||c.n.match(/[①②③④⑤]/))?`<div class="passage">${esc(Q.passage.join('\n'))}</div>`:''}`;
   if(c.kind==='calc'){
     html+=`<div class="choice" style="font-size:16px">${Q.choices.map((t,i)=>`<div style="margin:4px 0;${s.phase!=='ask'&&CIRC[i]===c.ox?'color:var(--o);font-weight:800':''}${s.phase!=='ask'&&CIRC[i]===s.pick&&s.pick!==c.ox?'color:var(--x);text-decoration:line-through':''}">${CIRC[i]} ${esc(t)}</div>`).join('')}</div>`;
     if(s.phase==='ask'){
       html+=`<div class="btns">${Q.choices.map((t,i)=>`<button class="btn n" style="padding:14px 4px" data-p="${CIRC[i]}">${CIRC[i]}</button>`).join('')}</div>
-      <p class="muted center" style="margin:10px 0 0">계산문제. 식이 안 떠오르면 아무거나 누르고 풀이를 읽으세요</p></div>`;
+      <p class="muted center" style="margin:10px 0 0">${c.mode==='choose'?'번호를 고르세요':'계산문제. 식이 안 떠오르면 아무거나 누르고 풀이를 읽으세요'}</p></div>`;
     }
-  } else if(c.mode==='pick'){
-    html+=`<div class="ask pick">이 보기를 <b>고르나요?</b><span>발문 「${esc(Q.question)}」에 맞으면 고릅니다</span></div>
-    <div class="choice" id="choice">${c.n} ${s.phase==='ask'?esc(c.text):renderMarked(c)}</div>`;
+  } else if(c.mode==='member'){
+    html+=`<div class="ask member">${esc(Q.cond)}</div>
+    <div class="choice" id="choice">${c.n.match(/^[ㄱ-ㅎ]/)?'':c.n+' '}${s.phase==='ask'?esc(c.text):renderMarked(c)}</div>`;
     if(s.phase==='ask'){
-      html+=`<div class="btns"><button class="btn n" data-p="P">✔ 고른다</button><button class="btn g" data-p="N">✖ 안 고른다</button></div>
-      <p class="muted center" style="margin:10px 0 0">고르기 카드는 O/X가 아니라 '고르나'를 묻습니다</p></div>`;
+      html+=`<div class="btns"><button class="btn n" data-p="Y">예</button><button class="btn g" data-p="N">아니오</button></div></div>`;
     }
   } else {
     html+=`<div class="ask truth">이 문장은 <b>옳은 말인가요?</b><span>발문이 옳은 것을 묻든 틀린 것을 묻든, 문장 자체가 맞는지만 봅니다</span></div>
@@ -275,6 +276,7 @@ function renderCard(){
       ${c.swap?`<div class="fix">바로잡은 문장: ${esc(fixedText(c))}</div><div class="kind">출제자의 바꿔치기: ${esc(c.swap.kind||'')}</div>`:(c.ox==='X'&&c.fix?`<div class="fix">바로잡기: ${esc(c.fix)}</div>`:'')}
       ${c.trap?`<div class="trap"><b>출제자가 바꿀 자리</b> <span class="hl">${esc(c.key||'')}</span><br>${esc(c.trap)}</div>`:''}
       ${c.alt?`<div class="note">${esc(c.alt)}</div>`:''}
+      ${c.mode==='choose'&&c.opts?`<div class="opts">${c.opts.map(o=>`<div class="opt-r ${o.ok?'ok':''}"><b>${esc(o.n)}</b> ${o.ok?'<span class="tag">정답</span>':''}${esc(o.reason||'')}${o.law?`<span class="law"> · ${esc(o.law)}</span>`:''}</div>`).join('')}</div>`:''}
       <div class="reason">${c.reason?esc(c.reason):'<span class="muted">근거 준비 중. 정답 여부만 확인하세요.</span>'}</div>
       ${c.law?`<div class="law">${esc(c.law)}</div>`:''}
       ${Q.issue?`<div class="box issue"><b>논점</b> ${esc(Q.issue)}</div>`:''}
@@ -320,8 +322,8 @@ function renderMarked(c){
 }
 function fixedText(c){ const t=c.text, p=c.swap.pos; return t.slice(0,p)+c.swap.to+t.slice(p+c.swap.from.length); }
 function ansLabel(c){
-  if(c.mode==='calc') return c.ox;
-  if(c.mode==='pick') return c.ox==='P'?'✔ 고른다':'✖ 안 고른다';
+  if(c.mode==='calc'||c.mode==='choose') return c.ox;
+  if(c.mode==='member') return c.ox==='Y'?'예':'아니오';
   return c.ox==='O'?'O 옳은 말':'X 틀린 말';
 }
 function askText(c,Q){
