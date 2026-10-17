@@ -82,6 +82,7 @@ h2{font-size:17px;margin:14px 0 8px}
 .ask span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .ask.truth{background:var(--o-bg)} .ask.pick{background:var(--acc-bg)}
 .ask.member{background:var(--acc-bg);font-size:18px;font-weight:800;line-height:1.45}
+.qimg{display:block;width:100%;height:auto;margin:10px 0;border-radius:8px;background:#fff;border:1px solid var(--line)}
 .opts{margin:8px 0}.opt-r{font-size:14px;padding:6px 0;border-bottom:1px solid var(--line)}.opt-r.ok{color:var(--o)}
 a.btn{display:block;text-align:center;text-decoration:none}
 .card.help{border-color:var(--acc)} .card.easy{border-color:var(--o)}
@@ -248,10 +249,10 @@ function renderCard(){
   <div class="card">
     <div><span class="tag ${Q.grade}">${Q.grade}급</span><span class="tag">${subj} ${Q.round}회 ${Q.no}번</span>${isAudit?'<span class="tag" style="background:var(--line);color:var(--ink2)">지운 카드 검사</span>':''}${st.st===1?`<span class="muted" style="font-size:12px">근거까지 ${st.k.length}/2</span>`:''}</div>
     <div class="muted" style="font-size:12px;margin-top:4px">${esc(Q.concept)}</div>
-    ${c.mode==='member'?(Q.facts?`<div class="qstem">${esc(Q.facts)}</div>`:''):`<div class="qstem">${esc(Q.question)}</div>`}
-    ${Q.passage&&Q.passage.length&&(c.kind==='calc'||c.n.match(/[①②③④⑤]/))?`<div class="passage">${esc(Q.passage.join('\n'))}</div>`:''}`;
+    ${c.kind==='calc'&&Q.img?`<img class="qimg" src="${Q.img}" alt="${Q.round}회 ${Q.no}번 문제 원문">`:(c.mode==='member'?(Q.facts?`<div class="qstem">${esc(Q.facts)}</div>`:''):`<div class="qstem">${esc(Q.question)}</div>`)}
+    ${!(c.kind==='calc'&&Q.img)&&Q.passage&&Q.passage.length&&(c.kind==='calc'||c.n.match(/[①②③④⑤]/))?`<div class="passage">${esc(Q.passage.join('\n'))}</div>`:''}`;
   if(c.kind==='calc'){
-    html+=`<div class="choice" style="font-size:16px">${Q.choices.map((t,i)=>`<div style="margin:4px 0;${s.phase!=='ask'&&CIRC[i]===c.ox?'color:var(--o);font-weight:800':''}${s.phase!=='ask'&&CIRC[i]===s.pick&&s.pick!==c.ox?'color:var(--x);text-decoration:line-through':''}">${CIRC[i]} ${esc(t)}</div>`).join('')}</div>`;
+    if(!Q.img||s.phase!=='ask') html+=`<div class="choice" style="font-size:16px">${Q.choices.map((t,i)=>`<div style="margin:4px 0;${s.phase!=='ask'&&CIRC[i]===c.ox?'color:var(--o);font-weight:800':''}${s.phase!=='ask'&&CIRC[i]===s.pick&&s.pick!==c.ox?'color:var(--x);text-decoration:line-through':''}">${CIRC[i]} ${esc(t)}</div>`).join('')}</div>`;
     if(s.phase==='ask'){
       html+=`<div class="btns">${Q.choices.map((t,i)=>`<button class="btn n" style="padding:14px 4px" data-p="${CIRC[i]}">${CIRC[i]}</button>`).join('')}</div>
       <p class="muted center" style="margin:10px 0 0">${c.mode==='choose'?'번호를 고르세요':'계산문제. 식이 안 떠오르면 아무거나 누르고 풀이를 읽으세요'}</p></div>`;
@@ -316,7 +317,7 @@ function renderCard(){
 }
 function renderMarked(c){
   const t=c.text||'';
-  if(c.swap&&c.swap.pos>=0){ const p=c.swap.pos, f=c.swap.from; return esc(t.slice(0,p))+'<span class="red">'+esc(f)+'</span><span class="ins">'+esc(c.swap.to)+'</span>'+esc(t.slice(p+f.length)); }
+  if(c.swap&&c.swap.pos>=0){ const p=c.swap.pos, f=c.swap.from; return esc(t.slice(0,p))+'<span class="red">'+esc(f)+'</span>'+(c.swap.to?'<span class="ins">'+esc(c.swap.to)+'</span>':'')+esc(t.slice(p+f.length)); }
   if(c.key&&t.includes(c.key)){ const p=t.indexOf(c.key); return esc(t.slice(0,p))+'<span class="hl">'+esc(c.key)+'</span>'+esc(t.slice(p+c.key.length)); }
   return markChoice(t,c.wrong);
 }
@@ -382,7 +383,7 @@ function renderExamPaper(){
   const qs=Object.values(D.questions).filter(q=>q.round===exam.round&&q.subject===exam.subj).sort((a,b)=>a.no-b.no);
   let html=`<div class="exam"><div class="row"><b>${exam.round}회 ${exam.subj==='rea'?'부동산학개론':'민법'}</b><button class="btn ghost small" style="flex:0 0 auto;padding:6px 10px" id="exit">나가기</button></div>`;
   for(const q of qs){
-    html+=`<div class="q">${q.no}. ${esc(q.question)}</div>${q.passage.length?`<div class="passage">${esc(q.passage.join('\n'))}</div>`:''}`;
+    html+=q.img?`<img class="qimg" src="${q.img}" alt="${q.no}번 문제 원문">`:`<div class="q">${q.no}. ${esc(q.question)}</div>${q.passage.length?`<div class="passage">${esc(q.passage.join('\n'))}</div>`:''}`;
     q.choices.forEach((t,i)=>{ const sel=exam.answers[q.no]===i+1; let cls='opt'+(sel?' sel':''); if(exam.done){ if(q.all_correct?sel:(i+1===q.answer)) cls+=' right'; else if(sel) cls+=' wrongsel'; } html+=`<button class="${cls}" data-q="${q.no}" data-i="${i+1}">${CIRC[i]} ${esc(t)}</button>`; });
     if(exam.done&&q.core) html+=`<div class="note">${esc(q.core)}</div>`;
   }
@@ -435,7 +436,7 @@ function renderSettings(){
     <div class="btns" style="margin-top:8px"><button class="btn ghost small" id="copy">복사</button><button class="btn ghost small" id="paste">붙여넣어 불러오기</button></div></div>
   <div class="card"><b>하루 시간</b><div class="btns" style="margin-top:8px">${[15,30,45,60].map(m=>`<button class="btn ${S.minutes===m?'n':'ghost'} small" data-m="${m}">${m}분</button>`).join('')}</div></div>
   <div class="card"><b>처음부터</b><p class="muted">모든 기록을 지웁니다. 되돌릴 수 없습니다.</p><div class="btns"><button class="btn x small" id="reset">기록 전부 지우기</button></div></div>
-  <div class="card muted" style="font-size:13px">문제: 한국산업인력공단 큐넷 공개 기출문제(공공누리 출처표시). 정답: 큐넷 기출을 두 출처로 대조. 선지 근거: 이 앱을 위해 직접 작성한 것으로, 틀린 곳이 있으면 PD가 '문제 전체 보기'로 원문을 확인하세요. 카드 ${D.summary.total}장.</div>`;
+  <div class="card muted" style="font-size:13px">문제: 한국산업인력공단 큐넷 공개 기출문제(공공누리 출처표시). 36회 문제 그림은 큐넷 PDF가 그림이라 전자문제집 CBT(comcbt.com) 학생용 판에서 잘랐다. 정답: 큐넷 기출을 두 출처로 대조. 선지 근거: 이 앱을 위해 직접 작성한 것으로, 틀린 곳이 있으면 PD가 '문제 전체 보기'로 원문을 확인하세요. 카드 ${D.summary.total}장.</div>`;
   main.querySelector('#copy').onclick=()=>{ const ta=main.querySelector('#dump'); ta.select(); try{ navigator.clipboard.writeText(ta.value); alert('복사했습니다'); }catch(e){ document.execCommand('copy'); } };
   main.querySelector('#paste').onclick=()=>{ const v=prompt('복사해 둔 글을 붙여 넣으세요'); if(!v) return; try{ const o=JSON.parse(v); if(!o.cards) throw 0; S=o; save(); alert('불러왔습니다'); render(); }catch(e){ alert('형식이 맞지 않습니다'); } };
   main.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ S.minutes=+b.dataset.m; save(); renderSettings(); });
