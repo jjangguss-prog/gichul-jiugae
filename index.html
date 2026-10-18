@@ -211,6 +211,16 @@ b.kw{font-weight:800}
 .hbex{font-size:11.5px;color:var(--muted);margin:-3px 0 6px 116px;line-height:1.4}
 .choice del{color:var(--x);text-decoration:line-through;text-decoration-thickness:2px}
 .fix ins{text-decoration:none;font-weight:900;border-bottom:2px solid var(--o)}
+/* 바로잡기(10-19): 빨강 = 출제자가 바꿔친 말, 주황 칸 = 그럴듯하게 지어낸 말, 회색 = 바로잡으며 연결만 다듬은 곳 */
+del.f{color:var(--warn);text-decoration:line-through;text-decoration-thickness:1.5px;background:var(--warn-bg);border-radius:4px;padding:0 2px}
+del.l{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
+.ins.l{color:var(--muted);font-weight:600;background:transparent;padding:0;margin-left:2px}
+.edkey{font-size:12px;color:var(--muted);margin:0 0 6px}
+.edkey .f{color:var(--warn)} .edkey .c{color:var(--x)}
+.fake{font-size:14px;background:var(--warn-bg);color:var(--ink);padding:8px 10px;border-radius:8px;margin:6px 0;line-height:1.6}
+.fake b{color:var(--warn);margin-right:4px}
+.oxi .fk{font-size:13.5px;background:var(--warn-bg);color:var(--ink);padding:5px 9px;border-radius:6px;margin-top:5px;line-height:1.55}
+.oxi .fk b{color:var(--warn);margin-right:4px}
 .vb{display:flex;gap:6px;align-items:flex-end;height:64px;margin:8px 0 2px}
 .vb div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:11px;color:var(--ink2);font-variant-numeric:tabular-nums}
 .vb i{display:block;width:100%;background:var(--acc);border-radius:4px 4px 0 0;margin-top:2px}
@@ -668,7 +678,7 @@ function renderCard(){
     const ok=s.pick===c.ox;
     html+=`<div class="verdict ${ok?'ok':'bad'}">${ok?'맞음':'틀림'} · 정답은 ${ansLabel(c)}</div>
       ${s.confused?'':streakHtml(s.res)}
-      ${c.swap?`<div class="fix">바로잡은 문장: ${esc(fixedText(c))}</div><div class="kind">출제자의 바꿔치기: ${esc(c.swap.kind||'')}</div>`:(c.ox==='X'&&c.fix?`<div class="fix">바로잡기: ${esc(c.fix)}</div>`:'')}
+      ${c.swap?`<div class="fix">바로잡은 문장: ${c.ed&&c.ed.length?edPair(c.text,c.ed).b:esc(fixedText(c))}</div><div class="kind">출제자의 바꿔치기: ${esc(c.swap.kind||'')}</div>${edLegend(c.ed)}${c.fake?`<div class="fake"><b>그럴듯하게 지어낸 말</b>${md(c.fake)}</div>`:''}`:(c.ox==='X'&&c.fix?`<div class="fix">바로잡기: ${esc(c.fix)}</div>`:'')}
       ${c.trap?`<div class="trap"><b>출제자가 바꿀 자리</b> <span class="hl">${esc(c.key||'')}</span><br>${md(c.trap)}</div>`:''}
       ${c.alt?`<div class="note">${md(c.alt)}</div>`:''}
       ${c.mode==='choose'&&c.opts?`<div class="opts">${c.opts.map(o=>`<div class="opt-r ${o.ok?'ok':''}"><b>${esc(o.n)}</b> ${o.ok?'<span class="tag">정답</span>':''}${md(o.reason||'')}${o.law?`<span class="law"> · ${esc(o.law)}</span>`:''}</div>`).join('')}</div>`:''}
@@ -717,6 +727,7 @@ function renderCard(){
 }
 function renderMarked(c){
   const t=c.text||'';
+  if(c.ed&&c.ed.length) return edPair(t,c.ed,true).a;
   if(c.swap&&c.swap.pos>=0){ const p=c.swap.pos, f=c.swap.from; return esc(t.slice(0,p))+'<span class="red">'+esc(f)+'</span>'+(c.swap.to?'<span class="ins">'+esc(c.swap.to)+'</span>':'')+esc(t.slice(p+f.length)); }
   if(c.key&&t.includes(c.key)){ const p=t.indexOf(c.key); return esc(t.slice(0,p))+'<span class="hl">'+esc(c.key)+'</span>'+esc(t.slice(p+c.key.length)); }
   return markChoice(t,c.wrong);
@@ -738,6 +749,26 @@ function shadeFocus(c){
   if(!r) return esc(t);
   return esc(t.slice(0,r[0]))+'<span class="focus">'+esc(t.slice(r[0],r[1]))+'</span>'+esc(t.slice(r[1]));
 }
+// 바로잡기 표시(앱/바로잡기.py): ed=[[위치, 원문 말, 바로잡은 말, 역할]] 역할 c 바꿔친 말·f 지어낸 말·l 연결 다듬기
+// a = 원문에 줄 긋기(inline이면 바로잡은 말을 바로 옆에), b = 바로잡은 문장(바꿔친 말·지어낸 말 자리만 밑줄)
+function edPair(t,ed,inline){
+  let a='', b='', last=0;
+  for(const [p,f,to,r] of ed){
+    const mid=esc(t.slice(last,p)); a+=mid; b+=mid;
+    a+=r==='c'?(inline?'<span class="red">'+esc(f)+'</span>':'<del>'+esc(f)+'</del>'):'<del class="'+r+'">'+esc(f)+'</del>';
+    if(inline&&to) a+='<span class="ins '+r+'">'+esc(to)+'</span>';
+    if(to) b+=r==='l'?esc(to):'<ins>'+esc(to)+'</ins>';
+    last=p+f.length;
+  }
+  a+=esc(t.slice(last)); b+=esc(t.slice(last));
+  return {a, b:b.replace(/ {2,}/g,' ').replace(/ +([,.])/g,'$1').trim()};
+}
+function edLegend(ed){
+  const has=r=>(ed||[]).some(e=>e[3]===r);
+  if(!has('f')&&!has('l')) return '';
+  return `<div class="edkey"><span class="c">빨간 줄</span> 바꿔친 말${has('f')?' · <span class="f">주황 칸</span> 그럴듯하게 지어낸 말':''}${has('l')?' · 회색 줄 바로잡으며 연결만 다듬은 곳':''}</div>`;
+}
+function fixDiff(o){ return o.ed&&o.ed.length?edPair(o.text,o.ed):wordDiff(o.text,o.fix); }
 function fixedText(c){ const t=c.text, p=c.swap.pos; return t.slice(0,p)+c.swap.to+t.slice(p+c.swap.from.length); }
 function ansLabel(c){
   if(c.mode==='calc'||c.mode==='choose') return c.ox;
@@ -1020,10 +1051,10 @@ function oxStatus(o){
 // 甲·乙·丙 지문은 발문의 사실관계(사례)를 위에 붙인다. 바로 위 지문과 같은 사례면 한 번만
 function caseHtml(o,prev){ return o.case&&!(prev&&prev.case===o.case)?`<div class="cs"><b>사례</b>${esc(o.case)}</div>`:''; }
 function oxHtml(o,i,prev){
-  const d=o.ox==='X'&&o.fix?wordDiff(o.text,o.fix):null;
+  const d=o.ox==='X'&&o.fix?fixDiff(o):null;
   const also=(o.also||[]).map(rlabel);
   return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx">${caseHtml(o,prev)}<span class="rd">${rlabel(o.ref)}</span><span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${o.re?'<span class="re">(보기를 문장으로)</span>':''}${oxStatus(o)}</div></div>
-    <div class="more">${o.ox==='X'&&o.fix?`<div class="fx">→ ${d?d.b:esc(o.fix)}</div>`:''}${o.why?`<div class="wy">${md(o.why)}</div>`:''}${o.now?`<div class="nw">법 개정: ${esc(o.now)}</div>`:''}${also.length?`<div class="al">같은 논점 기출: ${also.join(', ')}</div>`:''}</div></li>`;
+    <div class="more">${o.ox==='X'&&o.fix?`<div class="fx">→ ${d?d.b:esc(o.fix)}</div>`:''}${o.fk?`<div class="fk"><b>지어낸 말</b>${md(o.fk)}</div>`:''}${o.why?`<div class="wy">${md(o.why)}</div>`:''}${o.now?`<div class="nw">법 개정: ${esc(o.now)}</div>`:''}${also.length?`<div class="al">같은 논점 기출: ${also.join(', ')}</div>`:''}</div></li>`;
 }
 function renderSection(id){
   const st=bookState(); const s=B.sections[id], ch=B.chapters[s.ch];
@@ -1050,7 +1081,7 @@ function renderSection(id){
     ${(s.calc||[]).map(c=>`<div class="calcb"><div class="nm">${esc(c.name)}</div><div class="fm">${esc(c.formula)}</div>${c.steps&&c.steps.length?`<ol>${c.steps.map(x=>`<li>${md(x.replace(/^\s*\d+[).]\s*/,''))}</li>`).join('')}</ol>`:''}${c.trap?`<div class="ct">함정: ${md(c.trap.replace(/^함정\s*(답)?\s*[:：]\s*/,''))}</div>`:''}${c.ex?`<div class="ex">대표 기출: ${rlabel(c.ex)}</div>`:''}</div>`).join('')}
     ${s.ox.length?`<div class="sech"><h3>기출 지문 ${s.ox.length}개 <span class="muted" style="font-size:12px;font-weight:600">(틀린 지문 ${nX})</span></h3>
       <div style="display:flex;gap:6px"><button class="chipbtn ${bk.wrong?'on':''}" id="wrongOnly">틀린 적만</button><button class="chipbtn ${st.hide?'on':''}" id="hideAns">${st.hide?'답 가림':'답 가리기'}</button></div></div>
-      <p class="muted" style="font-size:12px;margin:0 0 2px">${st.hide?'지문을 누르면 정답과 근거가 열립니다.':'빨간 줄은 출제자가 바꾼 말, 초록은 바로잡은 말.'}</p>
+      <p class="muted" style="font-size:12px;margin:0 0 2px">${st.hide?'지문을 누르면 정답과 근거가 열립니다.':'빨간 줄은 출제자가 바꾼 말, 주황 칸은 그럴듯하게 지어낸 말, 회색 줄은 연결만 다듬은 곳, 초록은 바로잡은 말.'}</p>
       <ul class="oxl ${st.hide?'hideans':''}" id="oxl">${oxs.length?oxs.map(([o,i],k)=>oxHtml(o,i,k?oxs[k-1][0]:null)).join(''):'<li class="muted" style="padding:10px 0">카드에서 틀린 적 있는 지문이 없습니다.</li>'}</ul>`:''}
     ${s.traps&&s.traps.length?`<div class="trapbox"><b>출제자가 바꾸는 자리</b><ul style="margin:0;padding-left:18px">${s.traps.map(t=>`<li>${md(t)}</li>`).join('')}</ul></div>`:''}
     ${s.memo?`<div class="memo"><small>외우기</small>${md(s.memo)}</div>`:''}
@@ -1162,9 +1193,9 @@ function renderPatList(){
   if(pt.tabY){ const y=pt.tabY; pt.tabY=0; requestAnimationFrame(()=>window.scrollTo(0,y)); }
 }
 function patOxHtml(o,i,arr){
-  const d=o.ox==='X'&&o.fix?wordDiff(o.text,o.fix):null;
+  const d=o.ox==='X'&&o.fix?fixDiff(o):null;
   return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx">${caseHtml(o,i&&arr?arr[i-1]:null)}<span class="rd">${o.rounds.join('·')}회</span><span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${oxStatus(o)}</div></div>
-    <div class="more">${o.ox==='X'&&o.fix?`<div class="fx">→ ${d?d.b:esc(o.fix)}</div>`:''}${o.why?`<div class="wy">${md(o.why)}</div>`:''}</div></li>`;
+    <div class="more">${o.ox==='X'&&o.fix?`<div class="fx">→ ${d?d.b:esc(o.fix)}</div>`:''}${o.fk?`<div class="fk"><b>지어낸 말</b>${md(o.fk)}</div>`:''}${o.why?`<div class="wy">${md(o.why)}</div>`:''}</div></li>`;
 }
 function bindOx(){
   const ol=main.querySelector('#oxl'); if(!ol) return;
@@ -1182,7 +1213,7 @@ function renderPatDetail(id){
     ${p.table?tableHtml(p.table):''}
     ${p.exceptions&&p.exceptions.length?`<div class="pexc"><b>예외</b>${p.exceptions.map(md).join('<br>')}</div>`:''}
     <div class="sech"><h3>기출로 확인 ${p.ex.length}개</h3><button class="chipbtn ${pt.hide?'on':''}" id="hideAns">${pt.hide?'답 가림':'답 가리기'}</button></div>
-    <p class="muted" style="font-size:12px;margin:0 0 2px">${pt.hide?'위 규칙으로 O/X를 먼저 정하고 지문을 눌러 확인하세요.':'빨간 줄은 출제자가 바꾼 말, 초록은 바로잡은 말.'}</p>
+    <p class="muted" style="font-size:12px;margin:0 0 2px">${pt.hide?'위 규칙으로 O/X를 먼저 정하고 지문을 눌러 확인하세요.':'빨간 줄은 출제자가 바꾼 말, 주황 칸은 그럴듯하게 지어낸 말, 회색 줄은 연결만 다듬은 곳, 초록은 바로잡은 말.'}</p>
     <ul class="oxl ${pt.hide?'hideans':''}" id="oxl">${p.ex.map(patOxHtml).join('')}</ul>
     <div class="trapbox"><b>출제자가 바꾸는 자리</b>${md(p.trap)}</div>
     <div class="memo"><small>외우기</small>${md(p.memo)}</div>
@@ -1238,7 +1269,7 @@ function renderDrill(){
   if(d.mode==='list'){
     main.innerHTML=`<div class="reader"><div class="row"><button class="linkbtn" id="dx">‹ 패턴</button><span class="muted" style="font-size:12px">${d.q.length}개</span></div>
       <h2 class="st">또 나온 문장</h2>
-      <div class="row" style="margin-bottom:4px"><span class="muted" style="font-size:12px">${pt.hide?'지문을 누르면 정답과 근거가 열립니다.':'빨간 줄은 바꾼 말, 초록은 바로잡은 말.'}</span><button class="chipbtn ${pt.hide?'on':''}" id="hideAns">${pt.hide?'답 가림':'답 가리기'}</button></div>
+      <div class="row" style="margin-bottom:4px"><span class="muted" style="font-size:12px">${pt.hide?'지문을 누르면 정답과 근거가 열립니다.':'빨간 줄은 바꾼 말, 주황 칸은 지어낸 말, 초록은 바로잡은 말.'}</span><button class="chipbtn ${pt.hide?'on':''}" id="hideAns">${pt.hide?'답 가림':'답 가리기'}</button></div>
       <ul class="oxl ${pt.hide?'hideans':''}" id="oxl">${d.q.map(patOxHtml).join('')}</ul></div>`;
     main.querySelector('#dx').onclick=quit;
     main.querySelector('#hideAns').onclick=()=>{ pt.hide=!pt.hide; keepY(renderDrill); };
@@ -1256,10 +1287,10 @@ function renderDrill(){
   if(d.phase==='ask'){
     html+=`<div class="choice">${esc(r.text)}</div><div class="btns"><button class="btn o" data-p="O">O 옳은 말</button><button class="btn x" data-p="X">X 틀린 말</button></div></div>`;
   } else {
-    const ok=d.pick===r.ox, df=r.ox==='X'&&r.fix?wordDiff(r.text,r.fix):null;
+    const ok=d.pick===r.ox, df=r.ox==='X'&&r.fix?fixDiff(r):null;
     html+=`<div class="choice">${df?df.a:esc(r.text)}</div>
       <div class="verdict ${ok?'ok':'bad'}">${ok?'맞음':'틀림'} · 정답은 ${r.ox==='O'?'O 옳은 말':'X 틀린 말'}</div>
-      ${r.ox==='X'&&r.fix?`<div class="fix">바로잡기: ${df?df.b:esc(r.fix)}</div>`:''}
+      ${r.ox==='X'&&r.fix?`<div class="fix">바로잡기: ${df?df.b:esc(r.fix)}</div>${edLegend(r.ed)}`:''}${r.fk?`<div class="fake"><b>그럴듯하게 지어낸 말</b>${md(r.fk)}</div>`:''}
       ${r.why?`<div class="reason">${md(r.why)}</div>`:''}
       <button class="bookbtn" data-book="${r.sec}">📖 개념서에서 읽기 · ${esc(r.st||'')}</button>
       <div class="btns" style="margin-top:12px"><button class="btn n" id="dn">다음</button></div></div>`;
