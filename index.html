@@ -675,14 +675,16 @@ function renderCard(){
       <div class="reason">${c.reason?md(c.reason):'<span class="muted">근거 준비 중. 정답 여부만 확인하세요.</span>'}</div>
       ${c.law?`<div class="law">${esc(c.law)}</div>`:''}
       ${c.point?`<div class="box issue"><b>이 선지의 논점</b> ${md(c.point)}</div>
+      ${c.aim?`<div class="box intent"><b>이 선지의 출제 의도</b> ${md(c.aim)}</div>`:''}
       ${Q.issue||Q.intent||Q.frame?`<details><summary>문항 전체의 논점·출제 의도 (이 선지와는 다른 주제)</summary>
         ${Q.issue?`<div class="box issue"><b>논점</b> ${md(Q.issue)}</div>`:''}
         ${Q.intent?`<div class="box intent"><b>출제 의도</b> ${md(Q.intent)}</div>`:''}
         ${Q.frame?`<div class="note pre">${md(Q.frame)}</div>`:''}
         ${Q.tip?`<div class="tip">암기팁: ${md(Q.tip)}</div>`:''}</details>`:''}`:`
       ${Q.issue?`<div class="box issue"><b>논점</b> ${md(Q.issue)}</div>`:''}
-      ${Q.intent?`<div class="box intent"><b>출제 의도</b> ${md(Q.intent)}</div>`:''}
-      ${Q.frame?`<details open><summary>판단 틀 (헷갈리는 것 나란히 보기)</summary><div class="note pre">${md(Q.frame)}</div></details>`:''}`}
+      ${c.aim?`<div class="box intent"><b>이 선지의 출제 의도</b> ${md(c.aim)}</div>`:(Q.intent?`<div class="box intent"><b>출제 의도</b> ${md(Q.intent)}</div>`:'')}
+      ${Q.frame?`<details open><summary>판단 틀 (헷갈리는 것 나란히 보기)</summary><div class="note pre">${md(Q.frame)}</div></details>`:''}
+      ${c.aim&&Q.intent?`<details><summary>문항 전체의 출제 의도 (정답 선지 기준)</summary><div class="box intent">${md(Q.intent)}</div></details>`:''}`}
       ${Q.core&&!Q.issue?`<details><summary>이 문제의 핵심</summary><div class="note">${md(Q.core)}</div></details>`:''}
       ${Q.calc?`<details><summary>계산 풀이</summary><div class="calc">${esc(Q.calc)}</div></details>`:''}
       ${Q.tip&&!c.point?`<div class="tip">암기팁: ${md(Q.tip)}</div>`:''}
@@ -719,26 +721,16 @@ function renderMarked(c){
   if(c.key&&t.includes(c.key)){ const p=t.indexOf(c.key); return esc(t.slice(0,p))+'<span class="hl">'+esc(c.key)+'</span>'+esc(t.slice(p+c.key.length)); }
   return markChoice(t,c.wrong);
 }
-// 앞면 회색 음영: 해설이 칠하는 자리(바꿔친 말 또는 형광펜)를 어절 단위로 넓히고 8글자 이상으로 맞춘다.
-// 바꿔친 말은 형광펜보다 짧아서 그대로 칠하면 칠한 길이로 O/X가 티 난다.
+// 앞면 회색 음영: 뒷면에서 삭선(바꿔친 말 swap.from)이나 형광펜(key)이 칠해지는 바로 그 자리만 칠한다.
+// 넓히지 않는다(10-18 PD: 출제자가 바꿀지 말지 고민하는 자리만). 대신 형광펜도 바꿔친 말처럼 최소 단위로 맞춰
+// 칠한 길이로 O/X가 드러나지 않게 했다(선지DB/선지의도/_지침.md).
 // 예/아니오 카드는 보기가 대개 한두 낱말이라 칠하는지 여부로 답이 기운다. 옳은 말 카드에만 쓴다.
 function focusRange(c){
   const t=c.text||''; let a, b;
   if(c.swap&&c.swap.pos>=0){ a=c.swap.pos; b=a+c.swap.from.length; }
   else if(c.key&&t.includes(c.key)){ a=t.indexOf(c.key); b=a+c.key.length; }
   else return null;
-  const sp=ch=>/\s/.test(ch), P='.,?!·)';
-  while(a>0&&!sp(t[a-1])) a--;
-  while(b<t.length&&!sp(t[b])) b++;
-  while(b>a&&P.includes(t[b-1])) b--;
-  const vis=()=>t.slice(a,b).replace(/\s/g,'').length;
-  while(vis()<8){
-    const a0=a, b0=b;
-    if(a>0){ let j=a-1; while(j>0&&sp(t[j-1])) j--; while(j>0&&!sp(t[j-1])) j--; a=j; }
-    else if(b<t.length){ let j=b; while(j<t.length&&sp(t[j])) j++; while(j<t.length&&!sp(t[j])) j++; b=j; while(b>a&&P.includes(t[b-1])) b--; }
-    if(a===a0&&b===b0) break;
-  }
-  if(a===0&&!t.slice(b).replace(/[\s.,?!·)]/g,'')) return null; // 문장 전체면 칠할 뜻이 없다
+  if(!t.slice(0,a).replace(/[\s.,?!·()]/g,'')&&!t.slice(b).replace(/[\s.,?!·()]/g,'')) return null; // 문장 전체면 칠할 뜻이 없다
   return [a,b];
 }
 function shadeFocus(c){
