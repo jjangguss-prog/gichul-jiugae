@@ -280,7 +280,7 @@ function normalize(){
   S.minutes=S.minutes||60;
   S.daily=S.daily||{};      // 이 기기의 date -> {new:0, rev:0, sec:0}
   S.confused=S.confused||{}; // id -> 처음 누른 날짜(이해 안 된 카드)
-  S.book=S.book||{read:{},last:'',hide:false,subj:'civ'}; S.book.read=S.book.read||{};
+  S.book=S.book||{read:{},last:'',hide:false,subj:'civ'}; S.book.read=S.book.read||{}; // read: 섹션 id -> {n:읽은 날 수, d:마지막 날}
   S.pat=S.pat||{};          // 패턴 id -> {n:본 날 수, d:마지막 본 날} (예전 기록은 '외웠다' 누른 날짜 문자열)
   S.rep=S.rep||{};          // 또 나온 문장 ref -> {n:본 수, ok:맞힌 수, l:마지막 1맞음/0틀림, d:날짜}
   S.ddo=S.ddo||{};          // 다른 기기의 daily (동기화로 받음)
@@ -323,7 +323,7 @@ function legacyTs(){
     ts[key]=p==='c'?(v.last?dayMs(v.last)+Math.min(v.seen||0,999):1)
       :p==='x'?(v&&v.date?dayMs(v.date):1)
       :(p==='f'||p==='r'||p==='t')&&typeof v==='string'?dayMs(v)
-      :(p==='e'||p==='t')&&v&&v.d?dayMs(v.d)+Math.min(v.n||0,999)
+      :(p==='e'||p==='t'||p==='r')&&v&&v.d?dayMs(v.d)+Math.min(v.n||0,999)
       :UNIT_DEF[key]===j?0:1;
   }
   return ts;
@@ -513,6 +513,12 @@ function passInfo(){
   return {total, del, live, pass, done, pct:100*(del+done)/total, at:k=>100*(del+doneAt(k))/total, byG};
 }
 function pct(x){ return (x>0&&x<1?x.toFixed(1):Math.floor(x))+'%'; }
+// 본 기록(패턴 S.pat, 개념서 섹션 S.book.read): {n:본 날 수, d:마지막 본 날}. 열면 저절로 적고 하루에 한 번만 센다.
+// '외웠다'·'다 읽었다' 버튼은 부담이라 없앴다(10-20). 예전 기록(버튼 누른 날짜 문자열)은 그날 한 번 본 것으로 읽는다.
+function seenRec(v){ return !v?{n:0,d:''}:typeof v==='string'?{n:1,d:v}:v; }
+function markSeen(o,id){ const s=seenRec(o[id]), t=today(); if(s.d===t) return false; o[id]={n:s.n+1, d:t}; return true; }
+// 회독: 지금 회독 = 가장 적게 본 것의 본 날 수 + 1, done = 이번 회독에 본 수
+function seenPass(o,ids){ const ns=ids.map(id=>seenRec(o[id]).n), pass=Math.min(...ns)+1; return {pass, done:ns.filter(n=>n>=pass).length, total:ns.length}; }
 function render(){ header(); window.scrollTo(0,0); ({today:renderToday, pat:renderPat, book:renderBook, concepts:renderConcepts, exam:renderExam, stats:renderStats, settings:renderSettings})[view](); }
 
 /* ===== 오늘 ===== */
@@ -980,25 +986,24 @@ function renderBook(){
   if(bk.memo) return renderMemos();
   renderToc();
 }
-function chapterRead(cid){ const R=bookState().read; return B.chapters[cid].sections.filter(id=>R[id]).length; }
 function renderToc(){
   const st=bookState(); const subj=st.subj||'civ'; const sb=B.subjects.find(x=>x.id===subj);
   const last=st.last&&B.sections[st.last];
-  const secs=subjSecs(subj); const nRead=secs.filter(id=>st.read[id]).length;
+  const bp=seenPass(st.read,subjSecs(subj)), rd=id=>seenRec(st.read[id]).n>=bp.pass; // 과목마다 회독
   let html=`<div class="seg">${B.subjects.map(x=>`<button data-subj="${x.id}" class="${x.id===subj?'on':''}">${x.id==='civ'?'민법':'학개론'}</button>`).join('')}</div>
   <input class="search" id="bks" type="search" placeholder="개념서 검색 (예: 유치권, 저당상수)" value="${esc(bk.q)}">
   ${last&&!bk.q?`<button class="cont" data-sec="${last.id}"><span>이어 읽기</span>${esc(last.title)}</button>`:''}
-  <div class="row" style="margin:0 2px 10px"><span class="muted">${sb.name} · 읽은 섹션 ${nRead}/${secs.length}</span><button class="linkbtn" id="memo">외우기 모음 ›</button></div>`;
+  <div class="row" style="margin:0 2px 10px"><span class="muted">${sb.name} · ${bp.pass===1?'읽은 섹션':bp.pass+'회독'} ${bp.done}/${bp.total}</span><button class="linkbtn" id="memo">외우기 모음 ›</button></div>`;
   if(bk.q.trim()) html+=searchResults(bk.q.trim());
   else {
     for(const cid of sb.chapters){
-      const ch=B.chapters[cid]; const r=chapterRead(cid), n=ch.sections.length; const open=bk.open[cid];
+      const ch=B.chapters[cid]; const r=ch.sections.filter(rd).length, n=ch.sections.length; const open=bk.open[cid];
       html+=`<div class="card chap"><button class="hd" data-ch="${cid}"><div class="row"><b>${esc(ch.title)}</b><span class="muted" style="font-size:13px">${open?'접기':'펼치기'}</span></div>
         <div class="meta">10년 ${ch.nq}문항 출제(한 해 약 ${ch.per_round}문항) · 섹션 ${n}개 · 읽음 ${r}/${n}</div><div class="pbar"><i style="width:${n?Math.round(100*r/n):0}%"></i></div></button>
-        ${open?`<div class="secs">${ch.intro?`<div class="intro">${md(ch.intro)}</div>`:''}${(ch.tables||[]).map(tableHtml).join('')}${ch.sections.map(id=>{ const s=B.sections[id]; return `<button class="srow ${st.read[id]?'read':''}" data-sec="${id}"><span class="ck">${st.read[id]?'✓':''}</span><span class="tag ${s.grade}">${s.grade}</span><span class="t">${esc(s.title)}</span><span class="f">${s.f10}회</span></button>`; }).join('')}</div>`:''}
+        ${open?`<div class="secs">${ch.intro?`<div class="intro">${md(ch.intro)}</div>`:''}${(ch.tables||[]).map(tableHtml).join('')}${ch.sections.map(id=>{ const s=B.sections[id]; return `<button class="srow ${rd(id)?'read':''}" data-sec="${id}"><span class="ck">${rd(id)?'✓':''}</span><span class="tag ${s.grade}">${s.grade}</span><span class="t">${esc(s.title)}</span><span class="f">${s.f10}회</span></button>`; }).join('')}</div>`:''}
       </div>`;
     }
-    html+=`<p class="muted" style="font-size:12px;margin:4px 2px 0">A = 10년 중 6개 회차 이상 출제(꼭 읽기), B = 4~5회, C = 3회 이하. 오른쪽 숫자는 10년 중 출제 회차 수.</p>`;
+    html+=`<p class="muted" style="font-size:12px;margin:4px 2px 0">A = 10년 중 6개 회차 이상 출제(꼭 읽기), B = 4~5회, C = 3회 이하. 오른쪽 숫자는 10년 중 출제 회차 수.<br>섹션을 열기만 하면 ✓가 붙는다. ${SUBJ[subj]} 섹션을 다 읽으면 ${bp.pass+1}회독으로 넘어가고 ✓는 다시 비워진다.</p>`;
   }
   main.innerHTML=html;
   main.querySelectorAll('[data-subj]').forEach(b=>b.onclick=()=>{ st.subj=b.dataset.subj; save(); renderToc(); });
@@ -1058,7 +1063,8 @@ function oxHtml(o,i,prev){
 }
 function renderSection(id){
   const st=bookState(); const s=B.sections[id], ch=B.chapters[s.ch];
-  if(st.last!==id){ st.last=id; save(); }
+  const fresh=markSeen(st.read,id); if(fresh||st.last!==id){ st.last=id; save(); }
+  const sn=seenRec(st.read[id]).n;
   const list=subjSecs(s.ch[0]==='C'?'civ':'rea'); const k=list.indexOf(id);
   const prev=k>0?B.sections[list[k-1]]:null, next=k<list.length-1?B.sections[list[k+1]]:null;
   const qcards=D?D.cards.filter(c=>s.refs.includes(c.q)):[];
@@ -1073,7 +1079,7 @@ function renderSection(id){
     <div class="crumb">${s.ch[0]==='C'?'민법':'학개론'} › ${esc(ch.title)}</div>
     <h2 class="st">${esc(s.title)}</h2>
     ${s.law?`<div class="lawl">${esc(s.law)}</div>`:''}
-    <div><span class="tag ${s.grade}">${s.grade}급</span><span class="tag">${freqLabel(s)}</span>${st.read[id]?'<span class="tag" style="background:var(--o-bg);color:var(--o)">읽음</span>':''}</div>
+    <div><span class="tag ${s.grade}">${s.grade}급</span><span class="tag">${freqLabel(s)}</span><span class="tag" style="background:var(--o-bg);color:var(--o)">✓ ${sn===1?'처음 읽음':sn+'번째 읽음'}</span></div>
     ${s.one?`<div class="one"><small>그래서 이것만</small>${md(s.one)}</div>`:''}
     ${s.warn?`<div class="warnbox">법 개정 주의: ${md(s.warn)}</div>`:''}
     <ul class="concept">${(s.concept||[]).map(t=>/^\s*-\s+/.test(t)?`<li class="sub">${md(t.replace(/^\s*-\s+/,''))}</li>`:`<li>${md(t)}</li>`).join('')}</ul>
@@ -1088,22 +1094,19 @@ function renderSection(id){
     ${secPatHtml(id)}
     <details><summary>이 섹션의 기출 문항 ${s.refs.length}개</summary><div style="margin-top:6px">${s.refs.map(q=>`<div class="qref"><b>${rlabel(q)}</b> ${esc(B.qs[q]||'')}</div>`).join('')}</div></details>
     <div class="btns" style="margin-top:14px">${live.length?`<button class="btn n small" id="runCards">이 논점 카드 ${live.length}장 돌리기</button>`:`<button class="btn ghost small" disabled>${qcards.length?'이 논점 카드는 다 지웠습니다':'카드는 32~36회만 있습니다'}</button>`}</div>
-    <div class="btns" style="margin-top:8px"><button class="btn ${st.read[id]?'ghost':'o'} small" id="readBtn">${st.read[id]?'읽음 표시 지우기':'✓ 다 읽었다'}</button></div>
-    <div class="pn">${prev?`<button data-go="${prev.id}"><span>‹ 이전</span>${esc(prev.title)}</button>`:'<span style="flex:1"></span>'}${next?`<button class="nx" data-go="${next.id}" data-mark="1"><span>다음 ›</span>${esc(next.title)}</button>`:'<span style="flex:1"></span>'}</div>
+    <div class="pn">${prev?`<button data-go="${prev.id}"><span>‹ 이전</span>${esc(prev.title)}</button>`:'<span style="flex:1"></span>'}${next?`<button class="nx" data-go="${next.id}"><span>다음 ›</span>${esc(next.title)}</button>`:'<span style="flex:1"></span>'}</div>
   </div>`;
   const bc=main.querySelector('#backCard'); if(bc) bc.onclick=()=>{ bk.from=null; bk.sec=null; goView('today'); };
   const bp=main.querySelector('#backPat'); if(bp) bp.onclick=()=>{ bk.from=null; bk.sec=null; goView('pat'); };
   main.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>{ bk.from=null; openPat(b.dataset.pat,null); });
-  main.querySelector('#toToc').onclick=()=>{ bk.sec=null; bk.from=null; bk.open[s.ch]=true; render(); };
-  main.querySelector('#readBtn').onclick=()=>{ if(st.read[id]) delete st.read[id]; else st.read[id]=today(); save(); const y=window.scrollY; renderSection(id); window.scrollTo(0,y); };
-  const hb=main.querySelector('#hideAns'); if(hb) hb.onclick=()=>{ st.hide=!st.hide; save(); const y=window.scrollY; renderSection(id); window.scrollTo(0,y); };
+  main.querySelector('#toToc').onclick=()=>{ bk.sec=null; bk.from=null; bk.open[s.ch]=true; render(); };  const hb=main.querySelector('#hideAns'); if(hb) hb.onclick=()=>{ st.hide=!st.hide; save(); const y=window.scrollY; renderSection(id); window.scrollTo(0,y); };
   const wb=main.querySelector('#wrongOnly'); if(wb) wb.onclick=()=>{ bk.wrong=!bk.wrong; const y=window.scrollY; renderSection(id); window.scrollTo(0,y); };
   const ol=main.querySelector('#oxl');
   if(ol){
     ol.querySelectorAll('.oxi').forEach(li=>{ if(!st.hide) showDiff(li,true); li.onclick=()=>{ if(!st.hide) return; li.classList.toggle('open'); showDiff(li,li.classList.contains('open')); }; });
   }
   const rc=main.querySelector('#runCards'); if(rc) rc.onclick=()=>{ bk.from=null; view='today'; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.v==='today')); startSession(live); };
-  main.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{ if(b.dataset.mark&&!st.read[id]){ st.read[id]=today(); save(); } bk.from=null; openSection(b.dataset.go); });
+  main.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{ bk.from=null; openSection(b.dataset.go); });
 }
 function showDiff(li,on){ const a=li.querySelector('.t0'), b=li.querySelector('.t1'); if(!b) return; a.classList.toggle('hide',on); b.classList.toggle('hide',!on); }
 function renderMemos(){
@@ -1136,12 +1139,9 @@ function loadPat(){
 function patById(id){ return P&&P.patterns.find(p=>p.id===id); }
 function patsOf(subj){ return P.patterns.filter(p=>p.subj===subj); }
 function patLive(p){ if(!D) return []; const ids=new Set(p.cards); return D.cards.filter(c=>ids.has(c.id)&&cardState(c.id).st!==2); }
-// 본 기록: 패턴을 열면 저절로 적는다(하루에 한 번만 센다). '외웠다' 버튼은 부담이라 없앴다(10-20).
-// 예전 기록('외웠다' 누른 날짜 문자열)은 그날 한 번 본 것으로 읽는다.
-function patSeen(id){ const v=S.pat[id]; return !v?{n:0,d:''}:typeof v==='string'?{n:1,d:v}:v; }
-function markPatSeen(id){ const s=patSeen(id), t=today(); if(s.d===t) return; S.pat[id]={n:s.n+1, d:t}; save(); }
-// 패턴 회독: 지금 회독 = 가장 적게 본 패턴의 본 날 수 + 1, done = 이번 회독에 본 패턴 수
-function patPass(){ const ns=P.patterns.map(p=>patSeen(p.id).n), pass=Math.min(...ns)+1; return {pass, done:ns.filter(n=>n>=pass).length, total:ns.length}; }
+function patSeen(id){ return seenRec(S.pat[id]); }
+function markPatSeen(id){ if(markSeen(S.pat,id)) save(); }
+function patPass(){ return seenPass(S.pat,P.patterns.map(p=>p.id)); }
 function patLabel(pp){ return `${pp.pass===1?'봤다':pp.pass+'회독'} ${pp.done} / ${pp.total}`; }
 function patNext(pass){ const left=P.patterns.filter(p=>patSeen(p.id).n<pass); return left.find(p=>p.level==='S')||left[0]; }
 function patLinks(cid){
