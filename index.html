@@ -216,6 +216,7 @@ b.kw{font-weight:800}
 i.ar{font-style:normal;color:var(--muted);margin:0 5px}
 .px{font-size:12.5px;color:var(--muted);font-weight:500}
 .px .lw{font-size:1em}
+.pf{display:block;font-size:12.5px;color:var(--muted);font-weight:400;line-height:1.5;margin-top:2px}
 .okx{display:inline-block;min-width:1.45em;text-align:center;font-size:12px;font-weight:900;line-height:1.5;border-radius:5px;padding:0 3px;vertical-align:1px}
 .okx.O{background:var(--o-bg);color:var(--o)} .okx.X{background:var(--x-bg);color:var(--x)}
 .srow .t small{display:block;font-size:12.5px;color:var(--muted);line-height:1.4;margin-top:2px}
@@ -1278,7 +1279,7 @@ function renderPatDetail(id){
     ${p.head?`<div class="pname">${esc(p.name)}</div><h2 class="st phead">${p.head.map(h=>`<span>${ptInline(h)}</span>`).join('')}</h2>`:`<h2 class="st">${esc(p.title)}</h2>`}
     <div><span class="tag ${p.level}">${p.level}급</span><span class="tag">10년 ${p.f10}회 출제</span>${patRdTag(id,p)}</div>
     ${p.sig?`<div class="psig"><small>이런 문제가 나오면</small>${p.sig.map(x=>`<span class="sg">${ptInline(x)}</span>`).join('')}</div>`:`<div class="pwhen"><small>이런 문제가 나오면</small>${md(p.when)}</div>`}
-    ${p.pts?p.pts.map(b=>`<div class="pblk">${b.h?`<div class="ph">${esc(b.h)}</div>`:''}<ul>${b.li.map(x=>`<li>${ptLine(x)}</li>`).join('')}</ul></div>`).join(''):`<ul class="prule">${p.rule.map(r=>`<li>${md(r)}</li>`).join('')}</ul>`}
+    ${p.pts?p.pts.map(b=>`<div class="pblk">${b.h?`<div class="ph">${esc(b.h)}</div>`:''}<ul>${b.li.map((x,i)=>`<li>${ptLine(x)}${b.s&&b.s[i]?`<span class="pf">${esc(b.s[i])}</span>`:''}</li>`).join('')}</ul></div>`).join(''):`<ul class="prule">${p.rule.map(r=>`<li>${md(r)}</li>`).join('')}</ul>`}
     ${p.table?tableHtml(p.table):''}
     ${p.exceptions&&p.exceptions.length?`<div class="pexc"><b>예외</b>${p.exceptions.map(md).join('<br>')}</div>`:''}
     <div class="sech"><h3>기출로 확인 ${p.ex.length}개</h3>${patRdCnt(id,p)}<button class="chipbtn ${pt.hide?'on':''}" id="hideAns">${pt.hide?'답 가림':'답 가리기'}</button></div>
