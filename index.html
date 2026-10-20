@@ -281,7 +281,7 @@ function normalize(){
   S.daily=S.daily||{};      // 이 기기의 date -> {new:0, rev:0, sec:0}
   S.confused=S.confused||{}; // id -> 처음 누른 날짜(이해 안 된 카드)
   S.book=S.book||{read:{},last:'',hide:false,subj:'civ'}; S.book.read=S.book.read||{};
-  S.pat=S.pat||{};          // 패턴 id -> 외웠다 누른 날짜
+  S.pat=S.pat||{};          // 패턴 id -> {n:본 날 수, d:마지막 본 날} (예전 기록은 '외웠다' 누른 날짜 문자열)
   S.rep=S.rep||{};          // 또 나온 문장 ref -> {n:본 수, ok:맞힌 수, l:마지막 1맞음/0틀림, d:날짜}
   S.ddo=S.ddo||{};          // 다른 기기의 daily (동기화로 받음)
   S._epoch=S._epoch||0;     // '처음부터'·붙여넣어 불러오기를 누른 시각
@@ -323,7 +323,7 @@ function legacyTs(){
     ts[key]=p==='c'?(v.last?dayMs(v.last)+Math.min(v.seen||0,999):1)
       :p==='x'?(v&&v.date?dayMs(v.date):1)
       :(p==='f'||p==='r'||p==='t')&&typeof v==='string'?dayMs(v)
-      :p==='e'&&v&&v.d?dayMs(v.d)+Math.min(v.n||0,999)
+      :(p==='e'||p==='t')&&v&&v.d?dayMs(v.d)+Math.min(v.n||0,999)
       :UNIT_DEF[key]===j?0:1;
   }
   return ts;
@@ -1124,7 +1124,7 @@ function renderMemos(){
 
 /* ===== 패턴 =====
    patterns.json(앱/패턴_만들기.py): 선지 읽는 법(데이터), 과목별 '이것만' 패턴, 두 회차 이상 또 나온 문장.
-   기록: S.pat(외웠다 누른 날짜), S.rep(또 나온 문장 O/X 결과). 동기화 단위는 t/, e/ */
+   기록: S.pat(본 기록), S.rep(또 나온 문장 O/X 결과). 동기화 단위는 t/, e/ */
 let P=null, patLoading=null, C2P={};
 const SUBJ={civ:'민법',rea:'학개론'};
 const pt={id:null, tab:'civ', from:null, hide:true, memo:false, rf:{subj:'all',min:3}, drill:null, tabY:0};
@@ -1136,6 +1136,14 @@ function loadPat(){
 function patById(id){ return P&&P.patterns.find(p=>p.id===id); }
 function patsOf(subj){ return P.patterns.filter(p=>p.subj===subj); }
 function patLive(p){ if(!D) return []; const ids=new Set(p.cards); return D.cards.filter(c=>ids.has(c.id)&&cardState(c.id).st!==2); }
+// 본 기록: 패턴을 열면 저절로 적는다(하루에 한 번만 센다). '외웠다' 버튼은 부담이라 없앴다(10-20).
+// 예전 기록('외웠다' 누른 날짜 문자열)은 그날 한 번 본 것으로 읽는다.
+function patSeen(id){ const v=S.pat[id]; return !v?{n:0,d:''}:typeof v==='string'?{n:1,d:v}:v; }
+function markPatSeen(id){ const s=patSeen(id), t=today(); if(s.d===t) return; S.pat[id]={n:s.n+1, d:t}; save(); }
+// 패턴 회독: 지금 회독 = 가장 적게 본 패턴의 본 날 수 + 1, done = 이번 회독에 본 패턴 수
+function patPass(){ const ns=P.patterns.map(p=>patSeen(p.id).n), pass=Math.min(...ns)+1; return {pass, done:ns.filter(n=>n>=pass).length, total:ns.length}; }
+function patLabel(pp){ return `${pp.pass===1?'봤다':pp.pass+'회독'} ${pp.done} / ${pp.total}`; }
+function patNext(pass){ const left=P.patterns.filter(p=>patSeen(p.id).n<pass); return left.find(p=>p.level==='S')||left[0]; }
 function patLinks(cid){
   if(!P||!C2P[cid]) return '';
   return C2P[cid].slice(0,2).map(id=>`<button class="patbtn" data-pat="${id}">★ 패턴 · ${esc(patById(id).title)}</button>`).join('');
@@ -1173,16 +1181,17 @@ function readingHtml(){
   </div>`;
 }
 function renderPatList(){
-  const all=P.patterns, nDone=all.filter(p=>S.pat[p.id]).length, tab=pt.tab;
-  let html=`<div class="card"><div class="row"><b style="font-size:19px">이것만 먼저</b><span class="muted">외움 ${nDone} / ${all.length}</span></div>
+  const pp=patPass(), tab=pt.tab, seen=p=>patSeen(p.id).n>=pp.pass;
+  let html=`<div class="card"><div class="row"><b style="font-size:19px">이것만 먼저</b><span class="muted">${patLabel(pp)}</span></div>
     <p style="margin:6px 0 0;font-size:15px;line-height:1.6">10년 800문항에서 <b>매번 같은 방식으로 정오가 갈린 자리</b>만 모았다. 하나 외우면 여러 회차 선지가 한 번에 풀린다. 카드 돌리기 전에 <b>S급부터</b> 읽는다.</p>
-    <div class="pbar2"><i style="width:${all.length?Math.round(100*nDone/all.length):0}%"></i></div></div>
+    <p class="muted" style="margin:4px 0 0;font-size:12px">열어 보기만 하면 ✓가 붙는다. 다 보면 ${pp.pass+1}회독으로 넘어가고 ✓는 다시 비워진다.</p>
+    <div class="pbar2"><i style="width:${pp.total?Math.round(100*pp.done/pp.total):0}%"></i></div></div>
   ${readingHtml()}
   <div class="seg">${[['civ',`민법 ${patsOf('civ').length}`],['rea',`학개론 ${patsOf('rea').length}`],['rep','또 나온 문장']].map(([k,l])=>`<button data-tab="${k}" class="${tab===k?'on':''}">${l}</button>`).join('')}</div>`;
   if(tab==='rep') html+=repHtml();
   else {
     const L=patsOf(tab);
-    html+=L.length?`<div class="card" style="padding:2px 12px">${L.map(p=>`<button class="srow ${S.pat[p.id]?'read':''}" data-pid="${p.id}"><span class="ck">${S.pat[p.id]?'✓':''}</span><span class="tag ${p.level}">${p.level}</span><span class="t">${esc(p.title)}</span><span class="f">${p.f10}회</span></button>`).join('')}</div>
+    html+=L.length?`<div class="card" style="padding:2px 12px">${L.map(p=>`<button class="srow ${seen(p)?'read':''}" data-pid="${p.id}"><span class="ck">${seen(p)?'✓':''}</span><span class="tag ${p.level}">${p.level}</span><span class="t">${esc(p.title)}</span><span class="f">${p.f10}회</span></button>`).join('')}</div>
     <div class="row" style="margin:0 2px"><span class="muted" style="font-size:12px">S = 10년 중 7개 회차 이상, A = 4~6회. 숫자는 출제 회차 수.</span><button class="linkbtn" id="pmemo">외우기 모음 ›</button></div>`:'<div class="card muted">이 과목 패턴은 준비 중입니다.</div>';
   }
   main.innerHTML=html;
@@ -1202,12 +1211,13 @@ function bindOx(){
   ol.querySelectorAll('.oxi').forEach(li=>{ if(!pt.hide) showDiff(li,true); li.onclick=()=>{ if(!pt.hide) return; li.classList.toggle('open'); showDiff(li,li.classList.contains('open')); }; });
 }
 function renderPatDetail(id){
-  const p=patById(id), list=patsOf(p.subj), k=list.indexOf(p), prev=list[k-1], next=list[k+1], live=patLive(p);
+  markPatSeen(id);
+  const p=patById(id), list=patsOf(p.subj), k=list.indexOf(p), prev=list[k-1], next=list[k+1], live=patLive(p), sn=patSeen(id).n;
   main.innerHTML=`<div class="reader">
     ${pt.from==='card'?`<div class="backbar"><button class="btn n small" id="backCard">← 카드로 돌아가기</button></div>`:''}
     <div class="row"><button class="linkbtn" id="toList">‹ 패턴 목록</button><span class="muted" style="font-size:12px">${SUBJ[p.subj]} ${k+1} / ${list.length}</span></div>
     <h2 class="st">${esc(p.title)}</h2>
-    <div><span class="tag ${p.level}">${p.level}급</span><span class="tag">10년 ${p.f10}회 출제</span>${S.pat[id]?'<span class="tag" style="background:var(--o-bg);color:var(--o)">외움</span>':''}</div>
+    <div><span class="tag ${p.level}">${p.level}급</span><span class="tag">10년 ${p.f10}회 출제</span><span class="tag" style="background:var(--o-bg);color:var(--o)">✓ ${sn===1?'처음 봄':sn+'번째 봄'}</span></div>
     <div class="pwhen"><small>이런 문제가 나오면</small>${md(p.when)}</div>
     <ul class="prule">${p.rule.map(r=>`<li>${md(r)}</li>`).join('')}</ul>
     ${p.table?tableHtml(p.table):''}
@@ -1218,7 +1228,6 @@ function renderPatDetail(id){
     <div class="trapbox"><b>출제자가 바꾸는 자리</b>${md(p.trap)}</div>
     <div class="memo"><small>외우기</small>${md(p.memo)}</div>
     <div class="btns">${live.length?`<button class="btn n small" id="runCards">이 패턴 카드 ${live.length}장 돌리기</button>`:`<button class="btn ghost small" disabled>${p.cards.length?'이 패턴 카드는 다 지웠습니다':'카드는 32~36회만 있습니다'}</button>`}</div>
-    <div class="btns" style="margin-top:8px"><button class="btn ${S.pat[id]?'ghost':'o'} small" id="doneBtn">${S.pat[id]?'외움 표시 지우기':'✓ 외웠다'}</button></div>
     <details style="margin-top:12px"><summary>개념서에서 더 읽기 (섹션 ${p.secs.length}개)</summary>${p.secs.map(s=>`<button class="bookbtn" data-book="${s.id}"><span class="tag ${s.grade}" style="font-size:11px">${s.grade}</span>${esc(s.title)} <span style="font-weight:600">· ${s.f10}회</span></button>`).join('')}</details>
     <div class="pn">${prev?`<button data-go="${prev.id}"><span>‹ 이전</span>${esc(prev.title)}</button>`:'<span style="flex:1"></span>'}${next?`<button class="nx" data-go="${next.id}"><span>다음 ›</span>${esc(next.title)}</button>`:'<span style="flex:1"></span>'}</div>
   </div>`;
@@ -1226,9 +1235,7 @@ function renderPatDetail(id){
   main.querySelector('#toList').onclick=()=>{ pt.id=null; pt.from=null; pt.tab=p.subj; render(); };
   main.querySelector('#hideAns').onclick=()=>{ pt.hide=!pt.hide; keepY(()=>renderPatDetail(id)); };
   bindOx();
-  const rc=main.querySelector('#runCards'); if(rc) rc.onclick=()=>{ pt.from=null; runCards(live); };
-  main.querySelector('#doneBtn').onclick=()=>{ if(S.pat[id]) delete S.pat[id]; else S.pat[id]=today(); save(); keepY(()=>renderPatDetail(id)); };
-  main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from='pat'; goView('book'); });
+  const rc=main.querySelector('#runCards'); if(rc) rc.onclick=()=>{ pt.from=null; runCards(live); };  main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from='pat'; goView('book'); });
   main.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{ pt.id=b.dataset.go; pt.from=null; render(); });
 }
 function renderPatMemos(){
@@ -1304,13 +1311,12 @@ function renderDrill(){
   const dn=main.querySelector('#dn'); if(dn) dn.onclick=()=>{ d.i++; d.phase='ask'; d.pick=null; window.scrollTo(0,0); renderDrill(); };
   main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from='pat'; goView('book'); });
 }
-// 오늘 탭: 아직 안 외운 패턴이 있으면 맨 위에 띄운다
+// 오늘 탭 맨 위: 이번 회독에 아직 안 본 패턴 중 다음 것(S급 먼저). 1회독 중에는 굵은 테두리
 function patTodayHtml(){
   if(!P||!P.patterns.length) return '';
-  const all=P.patterns, n=all.filter(p=>S.pat[p.id]).length; if(n>=all.length) return '';
-  const left=all.filter(p=>!S.pat[p.id]), nx=left.find(p=>p.level==='S')||left[0];
-  return `<div class="card" style="border:1.5px solid var(--ink)"><div class="row"><b>★ 먼저: 이것만 패턴</b><span class="muted">외움 ${n} / ${all.length}</span></div>
-    <p class="muted" style="margin:4px 0 8px">여러 회차 선지가 한 규칙으로 갈리는 자리 ${all.length}개. 하나에 2~3분.<br>다음: ${esc(nx.title)}</p>
+  const pp=patPass(), nx=patNext(pp.pass);
+  return `<div class="card"${pp.pass===1?' style="border:1.5px solid var(--ink)"':''}><div class="row"><b>★ 먼저: 이것만 패턴</b><span class="muted">${patLabel(pp)}</span></div>
+    <p class="muted" style="margin:4px 0 8px">${pp.pass===1?`여러 회차 선지가 한 규칙으로 갈리는 자리 ${pp.total}개. 하나에 2~3분, 열어 보면 저절로 ✓.`:`${pp.total}개를 ${pp.pass-1}번씩 다 봤다. 한 번 더 훑으면 ${pp.pass}회독.`}<br>다음: ${esc(nx.title)}</p>
     <div class="btns"><button class="btn n small" data-pat="${nx.id}">다음 패턴 읽기</button><button class="btn ghost small" id="toPat">패턴 목록</button></div></div>`;
 }
 // 개념서 섹션 → 그 섹션이 들어간 패턴
