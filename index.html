@@ -150,6 +150,8 @@ b.kw{font-weight:800}
 .oxb.O{background:var(--o)}.oxb.X{background:var(--x)}.oxb.q{background:var(--line);color:var(--ink2)}
 .oxi .tx{flex:1;font-size:15.5px;line-height:1.65}
 .oxi .rd{display:inline-block;font-size:12px;color:var(--muted);font-weight:800;margin-right:5px}
+.lawc{display:inline-block;font-size:11.5px;font-weight:800;padding:1px 6px;border-radius:6px;margin-right:5px;vertical-align:1px;line-height:1.5;white-space:nowrap}
+.lawc.lh{background:var(--acc-bg);color:var(--acc)} .lawc.ls{background:var(--warn-bg);color:var(--warn)} .lawc.lm{background:var(--line);color:var(--ink2)}
 .oxi .cs{font-size:13.5px;color:var(--ink2);background:var(--bg);border-left:3px solid var(--acc);border-radius:6px;padding:5px 9px;margin:0 0 6px;line-height:1.55}
 .oxi .cs b{color:var(--acc);font-size:12px;margin-right:4px}
 .oxi .re{font-size:11px;color:var(--muted);margin-left:4px}
@@ -1126,10 +1128,20 @@ function oxStatus(o){
 }
 // 甲·乙·丙 지문은 발문의 사실관계(사례)를 위에 붙인다. 바로 위 지문과 같은 사례면 한 번만
 function caseHtml(o,prev){ return o.case&&!(prev&&prev.case===o.case)?`<div class="cs"><b>사례</b>${esc(o.case)}</div>`:''; }
+// 임대차 지문은 같은 문장도 주택·상가·민법 중 어느 법이냐에 따라 정오가 갈린다(기간 2년 미만이면 주택은 2년, 상가는 1년).
+// 패턴·개념서·또 나온 문장은 발문 없이 지문만 보여 주므로 발문이 묻는 법을 지문 옆에 붙인다(10-22 PD).
+// 발문에 법 이름이 없어도 X주택·X상가건물 사례면 그 법으로, 일반 임대차·토지임대차·전대는 민법으로 갈랐다.
+const LEASE_LAW=(()=>{ const o={}, put=(k,qs)=>qs.split(' ').forEach(q=>o[q]=k);
+  put('h','27-65 28-76 28-80 29-78 30-76 31-75 31-76 32-75 32-76 33-75 34-78 35-74 35-75 36-75');
+  put('s','27-66 28-75 29-79 30-77 31-79 32-77 33-76 34-79 35-79 35-80 36-80');
+  put('m','27-77 27-78 28-66 29-68 29-72 29-73 30-73 30-74 30-75 31-74 32-73 32-74 33-73 33-74 34-72 34-73 35-73 36-72 36-73');
+  return o; })();
+const LAW_NAME={h:'주택임대차보호법', s:'상가건물 임대차보호법', m:'민법 임대차'};
+function lawHtml(ref){ const k=LEASE_LAW[(ref||'').split('-').slice(0,2).join('-')]; return k?`<span class="lawc l${k}">${LAW_NAME[k]}</span>`:''; }
 function oxHtml(o,i,prev){
   const d=o.ox==='X'&&o.fix?fixDiff(o):null;
   const also=(o.also||[]).map(rlabel);
-  return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx">${caseHtml(o,prev)}<span class="rd">${rlabel(o.ref)}</span><span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${o.re?'<span class="re">(보기를 문장으로)</span>':''}${oxStatus(o)}</div></div>
+  return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx">${caseHtml(o,prev)}<span class="rd">${rlabel(o.ref)}</span>${lawHtml(o.ref)}<span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${o.re?'<span class="re">(보기를 문장으로)</span>':''}${oxStatus(o)}</div></div>
     <div class="more">${o.ox==='X'&&o.fix?`<div class="fx">→ ${d?d.b:esc(o.fix)}</div>`:''}${o.fk?`<div class="fk"><b>지어낸 말</b>${md(o.fk)}</div>`:''}${o.why?`<div class="wy">${md(o.why)}</div>`:''}${o.now?`<div class="nw">법 개정: ${esc(o.now)}</div>`:''}${also.length?`<div class="al">같은 논점 기출: ${also.join(', ')}</div>`:''}</div></li>`;
 }
 function renderSection(id){
@@ -1294,7 +1306,7 @@ function renderPatList(){
 }
 function patOxHtml(o,i,arr){
   const d=o.ox==='X'&&o.fix?fixDiff(o):null;
-  return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx">${caseHtml(o,i&&arr?arr[i-1]:null)}<span class="rd">${o.rounds.join('·')}회</span><span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${oxStatus(o)}</div></div>
+  return `<li class="oxi" data-i="${i}"><div class="h"><span class="oxb ${o.ox}">${o.ox}</span><div class="tx">${caseHtml(o,i&&arr?arr[i-1]:null)}<span class="rd">${o.rounds.join('·')}회</span>${lawHtml(o.ref)}<span class="t0">${esc(o.text)}</span>${d?`<span class="t1 hide">${d.a}</span>`:''}${oxStatus(o)}</div></div>
     <div class="more">${o.ox==='X'&&o.fix?`<div class="fx">→ ${d?d.b:esc(o.fix)}</div>`:''}${o.fk?`<div class="fk"><b>지어낸 말</b>${md(o.fk)}</div>`:''}${o.why?`<div class="wy">${md(o.why)}</div>`:''}</div></li>`;
 }
 function bindOx(onOpen){
@@ -1395,7 +1407,7 @@ function renderDrill(){
   }
   const r=d.q[d.i];
   let html=`<div class="row"><span class="muted">${d.i+1} / ${d.q.length}</span><button class="btn ghost small" style="flex:0 0 auto;padding:6px 10px" id="dx">그만</button></div>
-  <div class="card"><div><span class="tag">${SUBJ[r.subj]} · ${r.rounds.join('·')}회</span></div><div class="muted" style="font-size:12px;margin-top:4px">${esc(r.st||'')}</div>
+  <div class="card"><div><span class="tag">${SUBJ[r.subj]} · ${r.rounds.join('·')}회</span>${lawHtml(r.ref)}</div><div class="muted" style="font-size:12px;margin-top:4px">${esc(r.st||'')}</div>
     <div class="ask truth">이 문장은 <b>옳은 말인가요?</b><span>${r.rounds.length}개 회차에 나온 문장. 정오는 매번 같았다.</span></div>`;
   if(r.case) html+=`<div class="passage"><b>사례</b> ${esc(r.case)}</div>`;
   if(d.phase==='ask'){
