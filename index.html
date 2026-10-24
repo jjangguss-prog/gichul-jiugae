@@ -510,7 +510,9 @@ normalize(); SNAP=units(S);
 function cardState(id){ return S.cards[id]||(S.cards[id]={st:0,k:[],last:'',due:'',miss:0,seen:0}); }
 
 /* ===== 큐 만들기 ===== */
-function buildQueue(){
+// five = '5문제만'(10-24 PD: 15분 29장은 정오 판단하고 해설까지 읽으면 택도 없다). 한 번에 5장, 복습 2·새 카드 3이고 모자라면 서로 채운다.
+// 지운 카드 검사는 오늘 검사한 게 3장이 될 때까지만 그중 한 자리에 끼운다(하루 시간 분량은 '시작'마다 3장).
+function buildQueue(five){
   const t=today(); const d=S.daily[t]||(S.daily[t]={new:0,rev:0,sec:0});
   const review=[], fresh=[], audit=[];
   for(const c of D.cards){
@@ -523,6 +525,13 @@ function buildQueue(){
   review.sort((a,b)=>cardState(b.id).miss-cardState(a.id).miss);
   // 지운 카드 몰래 검사: 하루 3장
   shuffle(audit); const auditPick=audit.slice(0,3);
+  if(five){
+    const aud=auditPick.length&&auditToday()<3?1:0, n=5-aud;
+    const f=Math.min(fresh.length, n-Math.min(review.length,2)), r=Math.min(review.length, n-f);
+    const q=[...review.slice(0,r), ...fresh.slice(0,f)];
+    if(aud) q.splice(Math.min(q.length,2),0,auditPick[0]);
+    return {q, review:review.length, fresh:fresh.length, deleted:audit.length};
+  }
   // 분량: 60분이면 복습 최대 45 + 새 카드 35 정도. 시간에 비례
   const m=S.minutes; const revN=Math.round(m*0.7), newN=Math.round(m*1.0);
   const q=[...review.slice(0,revN), ...fresh.slice(0,newN)];
@@ -530,6 +539,7 @@ function buildQueue(){
   auditPick.forEach((c,i)=>q.splice(Math.min(q.length, 5+i*8),0,c));
   return {q, review:review.length, fresh:fresh.length, deleted:audit.length};
 }
+function auditToday(){ const t=today(); return S.log.filter(l=>l.d===t&&l.au).length; } // 판단 기록이라 다른 기기에서 검사한 것도 센다
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
 
 /* ===== 화면 공통 ===== */
@@ -591,6 +601,8 @@ function renderToday(){
     </div>
     <p class="muted">오늘 한 것: 새 카드 ${d.new}장, 복습 ${d.rev}장, ${Math.round(d.sec/60)}분</p>
     <div class="btns"><button class="btn n" id="start">▶ 시작 (${info.q.length}장)</button></div>
+    <div class="btns" style="margin-top:8px"><button class="btn n" id="start5">▶ 5문제만</button></div>
+    <p class="muted" style="margin:8px 0 0">5문제만: 복습 2장 + 새 카드 3장. 끝나면 '5문제 더'로 이어 갑니다.</p>
     <div class="btns" style="margin-top:8px">
       <button class="btn ghost small" data-m="15">15분만</button>
       <button class="btn ghost small" data-m="30">30분</button>
@@ -622,6 +634,7 @@ function renderToday(){
     </ol>
   </div>`;
   main.querySelector('#start').onclick=()=>startSession(info.q);
+  main.querySelector('#start5').onclick=()=>startSession(buildQueue(true).q,true);
   const pb=main.querySelector('#pilot'); if(pb) pb.onclick=()=>startSession(D.cards.filter(c=>D.pilot.includes(c.q)));
   main.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ S.minutes=+b.dataset.m; save(); render(); });
   main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from=null; goView('book'); });
@@ -682,13 +695,15 @@ function accuracy(){
 }
 
 let timerId=null, startAt=0;
-function startSession(q){
+function startSession(q,five){
   NOTE='';
-  session={q, i:0, phase:'ask', pick:null, startAt:Date.now(), sec:0};
+  session={q, i:0, phase:'ask', pick:null, startAt:Date.now(), sec:0, five:!!five};
   startAt=Date.now();
-  clearInterval(timerId); timerId=setInterval(()=>{ const el=document.getElementById('timer'); if(!el||!session) return; const left=S.minutes*60-Math.floor((Date.now()-session.startAt)/1000); el.textContent=(left>=0?'남은 ':'초과 ')+fmt(Math.abs(left)); if(left===0){ try{navigator.vibrate&&navigator.vibrate(200);}catch(e){} } },1000);
+  clearInterval(timerId); timerId=setInterval(()=>{ const el=document.getElementById('timer'); if(!el||!session) return; el.textContent=timerText(); if(!session.five&&S.minutes*60===Math.floor((Date.now()-session.startAt)/1000)){ try{navigator.vibrate&&navigator.vibrate(200);}catch(e){} } },1000);
   renderCard();
 }
+// 하루 시간 분량은 남은 시간, 5문제만은 걸린 시간
+function timerText(){ const e=Math.floor((Date.now()-session.startAt)/1000); if(session.five) return '걸린 '+fmt(e); const left=S.minutes*60-e; return (left>=0?'남은 ':'초과 ')+fmt(Math.abs(left)); }
 function fmt(s){ return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
 function endSession(){
   if(session){ const t=today(); const d=S.daily[t]||(S.daily[t]={new:0,rev:0,sec:0}); d.sec+=Math.floor((Date.now()-session.startAt)/1000); save(); }
@@ -701,12 +716,17 @@ function markChoice(text, wrong){
 }
 function renderCard(){
   const s=session; if(!s) return renderToday();
+  if(s.i>=s.q.length&&s.five){
+    main.innerHTML=`<div class="card center"><div class="verdict ok">${s.q.length}문제 끝</div><p class="muted">${fmt(Math.floor((Date.now()-s.startAt)/1000))} 걸렸습니다.</p><div class="btns"><button class="btn n" id="more">▶ 5문제 더</button><button class="btn ghost" id="done">마치기</button></div></div>`;
+    main.querySelector('#more').onclick=()=>{ endSession(); startSession(buildQueue(true).q,true); };
+    main.querySelector('#done').onclick=endSession; return;
+  }
   if(s.i>=s.q.length){ main.innerHTML=`<div class="card center"><div class="verdict ok">오늘 분량 끝</div><p class="muted">${s.q.length}장을 봤습니다. 내일 또 봅시다.</p><div class="btns"><button class="btn n" id="done">마치기</button></div></div>`; main.querySelector('#done').onclick=endSession; return; }
   const c=s.q[s.i], Q=D.questions[c.q], st=cardState(c.id);
   const subj=Q.subject==='rea'?'학개론':'민법';
   if(s.phase==='ask'&&!s.form) s.form=testForm(c,st); // 판정 뒤엔 st가 바뀌므로 문제를 낼 때 정해 둔다
   const F=s.form||{}, ans=F.flip?F.flip.ox:c.ox;
-  let html=`<div class="row"><span class="muted">${s.i+1} / ${s.q.length}</span><span class="timer" id="timer">남은 ${fmt(S.minutes*60)}</span><button class="btn ghost small" style="flex:0 0 auto;padding:6px 10px" id="quit">그만</button></div>
+  let html=`<div class="row"><span class="muted">${s.i+1} / ${s.q.length}</span><span class="timer" id="timer">${timerText()}</span><button class="btn ghost small" style="flex:0 0 auto;padding:6px 10px" id="quit">그만</button></div>
   <div class="card">
     <div><span class="tag ${Q.grade}">${Q.grade}급</span><span class="tag">${subj} ${Q.round}회 ${Q.no}번</span>${F.tag?`<span class="tag" style="background:var(--line);color:var(--ink2)">${F.tag}</span>`:''}${st.st===1&&s.phase==='ask'?`<span class="muted" style="font-size:12px">지우기까지 ${dots(st.k.length)}</span>`:''}</div>
     <div class="muted" style="font-size:12px;margin-top:4px">${esc(Q.concept)}</div>
@@ -851,7 +871,8 @@ const STREAK_GAP=[0,1,2], STREAK_N=STREAK_GAP.length;
 // 카드 판정. 돌려주는 값은 뒷면에 띄울 연속 기록 결과: {r:'del'|'up'|'wait'|'miss'|'audit'|'revive', n:지금 연속, prev:틀리기 전 연속, gap:더 기다릴 날}
 function judge(c, ok){
   const Q=D.questions[c.q], st=cardState(c.id), t=today(); const d=S.daily[t]||(S.daily[t]={new:0,rev:0,sec:0});
-  S.log.push({d:t, subj:Q.subject, ok, id:c.id}); if(S.log.length>3000) S.log=S.log.slice(-3000);
+  const L={d:t, subj:Q.subject, ok, id:c.id}; if(st.st===2) L.au=1; // au = 지운 카드 검사
+  S.log.push(L); if(S.log.length>3000) S.log=S.log.slice(-3000);
   if(st.st===0){ d.new++; } else { d.rev++; }
   st.seen++; st.last=t; st.a=c.mode+':'+c.ox;
   const prev=st.k.length; let res;
