@@ -12,16 +12,26 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script>
+// 화면 밝기(10-24 PD): 자동(폰 설정을 따름)·밝게·어둡게. 이 기기에만 두고 동기화하지 않는다(폰은 어둡게, PC는 밝게일 수 있어서).
+// 그리기 전에 <html data-theme>를 정해 둬야 켤 때 번쩍이지 않는다.
+const THEME_MQ=matchMedia('(prefers-color-scheme: dark)');
+function themePref(){ try{ return localStorage.getItem('jiugae-theme')||'auto'; }catch(e){ return 'auto'; } }
+function applyTheme(){
+  const p=themePref(), dark=p==='dark'||(p==='auto'&&THEME_MQ.matches);
+  document.documentElement.dataset.theme=dark?'dark':'light';
+  const m=document.querySelector('meta[name=theme-color]'); if(m) m.content=dark?'#15161a':'#f6f4ee';
+}
+applyTheme(); if(THEME_MQ.addEventListener) THEME_MQ.addEventListener('change',applyTheme);
+</script>
 <style>
 :root{
   --bg:#f6f4ee; --card:#ffffff; --ink:#15150f; --ink2:#55534b; --muted:#8a877c; --line:#e3e0d6;
   --o:#1b7f5a; --o-bg:#e4f4ec; --x:#c8322b; --x-bg:#fbe8e6; --acc:#2f63d0; --acc-bg:#e7eefb; --warn:#b26a00; --warn-bg:#fff2dc;
-  --del:#6b6b6b; --focus:#e8e6df; --cc:rgba(255,212,0,.6);
+  --del:#6b6b6b; --focus:#e8e6df; --cc:rgba(255,212,0,.6); color-scheme:light;
 }
-@media (prefers-color-scheme: dark){
-  :root{ --bg:#15161a; --card:#1f2127; --ink:#f0eee6; --ink2:#c2bfb5; --muted:#8c897f; --line:#33363e;
-    --o:#4cc38a; --o-bg:#173427; --x:#ff6b61; --x-bg:#3a1f1d; --acc:#7aa2ff; --acc-bg:#1f2a44; --warn:#ffb84d; --warn-bg:#3a2d14; --focus:#3a3d46; --cc:rgba(255,200,0,.32); }
-}
+:root[data-theme="dark"]{ --bg:#15161a; --card:#1f2127; --ink:#f0eee6; --ink2:#c2bfb5; --muted:#8c897f; --line:#33363e;
+  --o:#4cc38a; --o-bg:#173427; --x:#ff6b61; --x-bg:#3a1f1d; --acc:#7aa2ff; --acc-bg:#1f2a44; --warn:#ffb84d; --warn-bg:#3a2d14; --focus:#3a3d46; --cc:rgba(255,200,0,.32); color-scheme:dark; }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;font-size:17px;line-height:1.5}
 body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
@@ -35,7 +45,7 @@ main{padding:14px 16px;max-width:680px;margin:0 auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--acc-bg);color:var(--acc);margin-right:6px;font-weight:700}
 .tag.A{background:#fde7ef;color:#b4134a} .tag.B{background:var(--warn-bg);color:var(--warn)} .tag.C{background:var(--line);color:var(--ink2)}
-@media (prefers-color-scheme: dark){ .tag.A{background:#3b1626;color:#ff8ab4} }
+[data-theme="dark"] .tag.A{background:#3b1626;color:#ff8ab4}
 .qstem{font-size:14px;color:var(--ink2);margin:8px 0 4px}
 .passage{font-size:14px;color:var(--ink2);background:var(--bg);border-left:3px solid var(--line);padding:6px 10px;margin:6px 0;border-radius:6px;white-space:pre-wrap}
 .choice{font-size:19px;font-weight:600;margin:10px 0 14px;line-height:1.55}
@@ -175,7 +185,7 @@ b.kw{font-weight:800}
 .trapbox li{font-size:15px;line-height:1.6;margin:3px 0}
 .memo{background:#fff3a3;color:#1a1a00;border-radius:12px;padding:12px 14px;font-weight:800;margin:14px 0;line-height:1.6;font-size:16px}
 .memo small{display:block;font-size:12px;opacity:.7;margin-bottom:2px}
-@media (prefers-color-scheme: dark){ .memo{background:#463d0c;color:#fff4bf} }
+[data-theme="dark"] .memo{background:#463d0c;color:#fff4bf}
 .warnbox{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px;font-size:14px;margin:10px 0}
 .calcb{border:1.5px solid var(--acc);border-radius:12px;padding:10px 14px;margin:12px 0}
 .calcb .nm{font-weight:800;font-size:15px}
@@ -992,7 +1002,10 @@ function renderStats(){
 
 /* ===== 설정 ===== */
 function renderSettings(){
-  main.innerHTML=`${SY.token?`<div class="card"><b>기기 간 동기화</b> <span class="tag" style="background:var(--o-bg);color:var(--o)">연결됨</span>
+  const th=themePref();
+  main.innerHTML=`<div class="card"><b>화면</b><div class="btns" style="margin-top:8px">${[['auto','자동'],['light','☀ 밝게'],['dark','☾ 어둡게']].map(([k,l])=>`<button class="btn ${th===k?'n':'ghost'} small" data-th="${k}">${l}</button>`).join('')}</div>
+    <p class="muted" style="margin:6px 0 0;font-size:13px">자동은 폰의 밝게·어둡게 설정을 따릅니다. 이 기기에만 적용됩니다.</p></div>
+  ${SY.token?`<div class="card"><b>기기 간 동기화</b> <span class="tag" style="background:var(--o-bg);color:var(--o)">연결됨</span>
     <p style="margin:6px 0 2px;font-size:15px" id="syncst">${syncStatus()}</p>
     <p class="muted" style="margin:4px 0;font-size:14px">앱을 열 때, 공부하는 동안 2분마다, 다른 앱으로 넘어가거나 화면을 끌 때 저절로 맞춥니다. 위쪽 ☁ 표시가 동기화 상태입니다.</p>
     <div class="btns" style="margin-top:8px"><button class="btn n small" id="syNow">지금 맞추기</button><button class="btn ghost small" id="syCopy">다른 기기용 토큰 복사</button></div>
@@ -1016,6 +1029,7 @@ function renderSettings(){
   main.querySelector('#copy').onclick=()=>{ const ta=main.querySelector('#dump'); ta.select(); try{ navigator.clipboard.writeText(ta.value); alert('복사했습니다'); }catch(e){ document.execCommand('copy'); } };
   main.querySelector('#paste').onclick=()=>{ const v=prompt('복사해 둔 글을 붙여 넣으세요'); if(!v) return; try{ const o=JSON.parse(v); if(!o.cards) throw 0; S=o; S._epoch=Date.now(); normalize(); SNAP=units(S); save(); syncNow(); alert('불러왔습니다'); render(); }catch(e){ alert('형식이 맞지 않습니다'); } };
   main.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ S.minutes=+b.dataset.m; save(); renderSettings(); });
+  main.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{ try{ if(b.dataset.th==='auto') localStorage.removeItem('jiugae-theme'); else localStorage.setItem('jiugae-theme',b.dataset.th); }catch(e){} applyTheme(); renderSettings(); });
   main.querySelector('#reset').onclick=()=>{ if(confirm('정말 전부 지울까요?')&&confirm('한 번 더: 모든 카드 기록이 사라집니다.')){ S={cards:{},log:[],exam:{},minutes:60,daily:{},_epoch:Date.now(),_ts:{}}; normalize(); SNAP=units(S); save(); syncNow(); render(); } };
   const q=s=>main.querySelector(s);
   if(q('#syGo')) q('#syGo').onclick=async()=>{
