@@ -255,8 +255,9 @@ i.ar{font-style:normal;color:var(--muted);margin:0 5px}
 .fix ins{text-decoration:none;font-weight:900;border-bottom:2px solid var(--o)}
 /* 바로잡기(10-19): 빨강 = 출제자가 바꿔친 말, 주황 칸 = 그럴듯하게 지어낸 말, 회색 = 바로잡으며 연결만 다듬은 곳 */
 del.f{color:var(--warn);text-decoration:line-through;text-decoration-thickness:1.5px;background:var(--warn-bg);border-radius:4px;padding:0 2px}
-del.l{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
-.ins.l{color:var(--muted);font-weight:600;background:transparent;padding:0;margin-left:2px}
+/* 연결만 다듬은 곳(10-24 PD: 지운 말과 고친 말이 둘 다 회색이라 구별이 안 됐다): 지운 말은 흐린 회색 줄, 고친 말은 초록 점선 */
+del.l{color:var(--muted);opacity:.75;text-decoration:line-through;text-decoration-thickness:2px}
+.ins.l{color:var(--o);font-weight:700;background:transparent;padding:0;margin-left:3px;border-bottom:1.5px dashed var(--o);border-radius:0}
 .edkey{font-size:12px;color:var(--muted);margin:0 0 6px}
 .edkey .f{color:var(--warn)} .edkey .c{color:var(--x)}
 .fake{font-size:14px;background:var(--warn-bg);color:var(--ink);padding:8px 10px;border-radius:8px;margin:6px 0;line-height:1.6}
@@ -826,7 +827,7 @@ function edPair(t,ed,inline){
 function edLegend(ed){
   const has=r=>(ed||[]).some(e=>e[3]===r);
   if(!has('f')&&!has('l')) return '';
-  return `<div class="edkey"><span class="c">빨간 줄</span> 바꿔친 말${has('f')?' · <span class="f">주황 칸</span> 그럴듯하게 지어낸 말':''}${has('l')?' · 회색 줄 바로잡으며 연결만 다듬은 곳':''}</div>`;
+  return `<div class="edkey"><span class="c">빨간 줄</span> 바꿔친 말${has('f')?' · <span class="f">주황 칸</span> 그럴듯하게 지어낸 말':''}${has('l')?' · <del class="l">회색 줄</del><span class="ins l">초록 점선</span> 바로잡으며 연결만 다듬은 곳':''}</div>`;
 }
 function fixDiff(o){ return o.ed&&o.ed.length?edPair(o.text,o.ed):wordDiff(o.text,o.fix); }
 function fixedText(c){ const t=c.text, p=c.swap.pos; return t.slice(0,p)+c.swap.to+t.slice(p+c.swap.from.length); }
