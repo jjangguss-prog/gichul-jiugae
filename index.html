@@ -86,6 +86,12 @@ body.aplay{padding-bottom:calc(128px + env(safe-area-inset-bottom))}
 #aplayer .ti{flex:1;min-width:0;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;padding:0 4px}
 #aplayer .ti small{display:block;font-size:11px;color:var(--muted);font-weight:600}
 #aplayer button.rt{font-size:13px;font-weight:800;color:var(--acc);border:1.5px solid var(--line);border-radius:999px;padding:3px 8px}
+/* 소제목별 듣기(10-25 PD): 결론·소제목 오른쪽 ▶ = 그 부분부터. 지금 읽는 부분은 파란 테두리 */
+.psrow{display:flex;align-items:flex-start;gap:8px} .psrow h2{flex:1}
+.pblk .ph{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.psec{flex:none;width:30px;height:30px;border:1px solid var(--line);background:var(--card);color:var(--acc);border-radius:999px;font-size:11px;cursor:pointer;padding:0 0 0 2px;touch-action:manipulation}
+.psrow .psec{margin-top:4px}
+.secnow{outline:2px solid var(--acc);outline-offset:3px;border-radius:12px}
 details{margin-top:6px} summary{cursor:pointer;color:var(--acc);font-size:14px;font-weight:700}
 .list button{width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:15px;color:var(--ink);cursor:pointer}
 .list .meta{font-size:12px;color:var(--muted);margin-top:2px}
@@ -1390,14 +1396,15 @@ function patOpenEx(id,p,li){
 }
 function renderPatDetail(id){
   const p=patById(id), list=patsOf(p.subj), k=list.indexOf(p), prev=list[k-1], next=list[k+1], live=patLive(p);
+  const pa=hasAudio(id)&&AU.patterns[id].parts, secBtn=s=>pa&&pa[s]!=null?`<button class="psec" data-at="${s}" aria-label="여기부터 듣기">▶</button>`:'';
   if(!p.ex.length) markPatSeen(id);
   main.innerHTML=`<div class="reader">
     ${pt.from==='card'?`<div class="backbar"><button class="btn n small" id="backCard">← 카드로 돌아가기</button></div>`:''}
     <div class="row"><button class="linkbtn" id="toList">‹ 패턴 목록</button><span class="muted" style="font-size:12px">${SUBJ[p.subj]} ${k+1} / ${list.length}</span></div>
-    ${p.head?`<div class="pname">${esc(p.name)}</div><h2 class="st phead">${p.head.map(h=>`<span>${ptInline(h)}</span>`).join('')}</h2>`:`<h2 class="st">${esc(p.title)}</h2>`}
-    <div><span class="tag ${p.level}">${p.level}급</span><span class="tag">10년 ${p.f10}회 출제</span>${patRdTag(id,p)}${hasAudio(id)?'<button class="chipbtn" id="listenOne" style="margin-top:6px">🔊 이 패턴부터 듣기</button>':''}</div>
+    ${p.head?`<div class="pname">${esc(p.name)}</div><div class="psrow" data-psec="head"><h2 class="st phead">${p.head.map(h=>`<span>${ptInline(h)}</span>`).join('')}</h2>${secBtn('head')}</div>`:`<h2 class="st">${esc(p.title)}</h2>`}
+    <div><span class="tag ${p.level}">${p.level}급</span><span class="tag">10년 ${p.f10}회 출제</span>${patRdTag(id,p)}${hasAudio(id)?'<button class="chipbtn" id="listenOne" style="margin-top:6px">🔊 이 패턴 듣기</button>':''}</div>
     ${p.sig?`<div class="psig"><small>이런 문제가 나오면</small>${p.sig.map(x=>`<span class="sg">${ptInline(x)}</span>`).join('')}</div>`:`<div class="pwhen"><small>이런 문제가 나오면</small>${md(p.when)}</div>`}
-    ${p.pts?p.pts.map(b=>`<div class="pblk">${b.h?`<div class="ph">${esc(b.h)}</div>`:''}<ul>${b.li.map((x,i)=>`<li>${ptLine(x)}${b.s&&b.s[i]?`<span class="pf">${esc(b.s[i])}</span>`:''}</li>`).join('')}</ul></div>`).join(''):`<ul class="prule">${p.rule.map(r=>`<li>${md(r)}</li>`).join('')}</ul>`}
+    ${p.pts?p.pts.map((b,j)=>`<div class="pblk" data-psec="b${j}">${b.h?`<div class="ph"><span>${esc(b.h)}</span>${secBtn('b'+j)}</div>`:''}<ul>${b.li.map((x,i)=>`<li>${ptLine(x)}${b.s&&b.s[i]?`<span class="pf">${esc(b.s[i])}</span>`:''}</li>`).join('')}</ul></div>`).join(''):`<ul class="prule">${p.rule.map(r=>`<li>${md(r)}</li>`).join('')}</ul>`}
     ${p.table?tableHtml(p.table):''}
     ${p.exceptions&&p.exceptions.length?`<div class="pexc"><b>예외</b>${p.exceptions.map(md).join('<br>')}</div>`:''}
     <div class="sech"><h3>기출로 확인 ${p.ex.length}개</h3>${patRdCnt(id,p)}<button class="chipbtn ${pt.hide?'on':''}" id="hideAns">${pt.hide?'답 가림':'답 가리기'}</button></div>
@@ -1412,7 +1419,9 @@ function renderPatDetail(id){
   const bc=main.querySelector('#backCard'); if(bc) bc.onclick=()=>{ pt.from=null; pt.id=null; goView('today'); };
   main.querySelector('#toList').onclick=()=>{ pt.id=null; pt.from=null; pt.tab=p.subj; render(); };
   main.querySelector('#hideAns').onclick=()=>{ pt.hide=!pt.hide; keepY(()=>renderPatDetail(id)); };
-  const lo=main.querySelector('#listenOne'); if(lo) lo.onclick=()=>apStart(list.map(x=>x.id),id);
+  const lo=main.querySelector('#listenOne'); if(lo) lo.onclick=()=>apStart(list.map(x=>x.id),id,0);
+  main.querySelectorAll('[data-at]').forEach(b=>b.onclick=()=>apStart(list.map(x=>x.id),id,pa[b.dataset.at]));  // 그 부분부터, 가만히 두면 다음 부분·다음 패턴
+  apMark();
   bindOx(li=>patOpenEx(id,p,li));
   const rc=main.querySelector('#runCards'); if(rc) rc.onclick=()=>{ pt.from=null; runCards(live); };  main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from='pat'; goView('book'); });
   main.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{ pt.id=b.dataset.go; pt.from=null; render(); });
@@ -1449,14 +1458,14 @@ function apEl(){
   document.body.appendChild(bar);
   const a=new Audio(); a.preload='auto';
   a.onended=()=>apGo(ap.i+1);
-  a.onplay=a.onpause=()=>{ bar.querySelector('#apPlay').textContent=a.paused?'▶':'⏸'; };
-  a.ontimeupdate=()=>{ bar.querySelector('.pg').style.width=(a.duration?100*a.currentTime/a.duration:0)+'%'; };
+  a.onplay=a.onpause=()=>{ bar.querySelector('#apPlay').textContent=a.paused?'▶':'⏸'; apMark(); };
+  a.ontimeupdate=()=>{ bar.querySelector('.pg').style.width=(a.duration?100*a.currentTime/a.duration:0)+'%'; apMark(); };
   bar.querySelector('#apPlay').onclick=()=>{ if(a.paused) a.play().catch(()=>{}); else a.pause(); };
-  bar.querySelector('#apPrev').onclick=()=>apGo(a.currentTime>3?ap.i:ap.i-1);  // 3초 넘게 들었으면 처음부터
+  bar.querySelector('#apPrev').onclick=()=>{ if(a.currentTime>3) a.currentTime=0; else apGo(ap.i-1); };  // 3초 넘게 들었으면 처음부터
   bar.querySelector('#apNext').onclick=()=>apGo(ap.i+1);
   bar.querySelector('#apRate').onclick=()=>{ const R=[1,1.25,1.5], r=R[(R.indexOf(a.playbackRate)+1)%R.length]; a.defaultPlaybackRate=a.playbackRate=r; try{ localStorage.setItem('jiugae-rate',r); }catch(e){} apInfo(); };
   bar.querySelector('#apTi').onclick=()=>{ const id=ap.q[ap.i]; if(id) openPat(id); };
-  bar.querySelector('#apX').onclick=()=>{ a.pause(); bar.classList.remove('on'); document.body.classList.remove('aplay'); };
+  bar.querySelector('#apX').onclick=()=>{ a.pause(); bar.classList.remove('on'); document.body.classList.remove('aplay'); apMark(); };
   if('mediaSession' in navigator){ const ms=navigator.mediaSession; ms.setActionHandler('play',()=>a.play()); ms.setActionHandler('pause',()=>a.pause()); ms.setActionHandler('previoustrack',()=>apGo(ap.i-1)); ms.setActionHandler('nexttrack',()=>apGo(ap.i+1)); }
   ap.el=a; return a;
 }
@@ -1467,15 +1476,24 @@ function apInfo(){
   bar.querySelector('#apRate').textContent=ap.el.playbackRate+'×';
   if('mediaSession' in navigator&&window.MediaMetadata) navigator.mediaSession.metadata=new MediaMetadata({title:patName(p), artist:'기출 패턴 · '+SUBJ[p.subj], album:'기출 지우개'});
 }
-function apGo(i){
+// at: 그 패턴 안에서 시작할 초(소제목 ▶). 듣던 패턴이면 다시 받지 않고 그 자리로만 옮긴다
+function apGo(i,at){
   const a=apEl();
   if(i<0||i>=ap.q.length){ a.pause(); return; }  // 목록 끝까지 들었으면 멈춘다
-  ap.i=i;
-  a.src=AUDIO_BASE+AU.patterns[ap.q[i]].file; a.defaultPlaybackRate=a.playbackRate=apRate(); a.play().catch(()=>{});
+  const url=AUDIO_BASE+AU.patterns[ap.q[i]].file;
+  if(i===ap.i&&a.src===url&&a.readyState>0){ if(at!=null) a.currentTime=at; }
+  else { a.src=url; if(at) a.addEventListener('loadedmetadata',()=>{ a.currentTime=at; },{once:true}); }
+  ap.i=i; a.defaultPlaybackRate=a.playbackRate=apRate(); a.play().catch(()=>{});
   document.getElementById('aplayer').classList.add('on'); document.body.classList.add('aplay');
   apInfo();
 }
-function apStart(ids,from){ const q=ids.filter(hasAudio); if(!q.length) return; ap.q=q; apGo(Math.max(0,q.indexOf(from))); }
+function apStart(ids,from,at){ const q=ids.filter(hasAudio); if(!q.length) return; if(q.join()!==ap.q.join()) ap.i=-1; ap.q=q; apGo(Math.max(0,q.indexOf(from)),at); }
+// 지금 읽는 소제목: 그 패턴 화면을 보고 있을 때만 파란 테두리
+function apSecNow(){ const it=AU&&AU.patterns[ap.q[ap.i]], pa=it&&it.parts; if(!pa||!ap.el) return null; let cur=null, best=-1; for(const k in pa){ const t=pa[k]; if(t<=ap.el.currentTime+0.05&&t>best){ best=t; cur=k; } } return cur; }
+function apMark(){
+  const on=ap.el&&!ap.el.paused&&view==='pat'&&pt.id===ap.q[ap.i]?apSecNow():null;
+  main.querySelectorAll('[data-psec]').forEach(el=>el.classList.toggle('secnow',el.dataset.psec===on));
+}
 // 또 나온 문장: 두 회차 이상 나온 지문. O/X 퀴즈 또는 목록
 function repPool(){ const f=pt.rf; return P.repeats.filter(r=>(f.subj==='all'||r.subj===f.subj)&&r.rounds.length>=f.min); }
 function repLast(r){ const s=S.rep[r.ref]; return s?s.l:-1; }
