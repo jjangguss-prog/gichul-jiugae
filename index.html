@@ -91,6 +91,7 @@ body.aplay{padding-bottom:calc(128px + env(safe-area-inset-bottom))}
 .pblk .ph{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .psec{flex:none;width:30px;height:30px;border:1px solid var(--line);background:var(--card);color:var(--acc);border-radius:999px;font-size:11px;cursor:pointer;padding:0 0 0 2px;touch-action:manipulation}
 .psrow .psec{margin-top:4px}
+.sech .psec{margin-right:auto} .oxi .h .psec{margin-top:-1px}
 .secnow{outline:2px solid var(--acc);outline-offset:3px;border-radius:12px}
 details{margin-top:6px} summary{cursor:pointer;color:var(--acc);font-size:14px;font-weight:700}
 .list button{width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:15px;color:var(--ink);cursor:pointer}
@@ -170,6 +171,9 @@ b.kw{font-weight:800}
 .tw th,.tw td{border:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top;min-width:64px}
 .tw th{background:var(--bg);font-weight:800;font-size:13px}
 .tw td:first-child{font-weight:700}
+/* 표 행 풀어 쓴 문장(10-25 PD): 행 아래 병합 칸. 패턴 오디오는 표를 이 문장으로만 읽는다 */
+.tw tr.trs td{font-weight:500;font-size:13.5px;color:var(--ink2);background:var(--bg);line-height:1.6;border-top:0}
+.tw tr.trs .psec{float:left;margin:0 8px 2px 0}  /* 넓은 표는 옆으로 밀리니 ▶는 문장 왼쪽(늘 보이게) */
 .sech{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:18px 0 4px}
 .sech h3{font-size:16px;margin:0}
 .chipbtn{border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
@@ -1163,7 +1167,9 @@ function searchResults(q){
   return `<div class="card" style="padding:6px 14px">${hits.slice(0,40).map(h=>`<button class="srow" data-sec="${h.s.id}"><span class="tag ${h.s.grade}">${h.s.grade}</span><span class="t">${esc(h.s.title)} <span class="muted" style="font-size:12px">${h.s.ch[0]==='C'?'민법':'학개론'} · ${h.n}곳</span><div class="hit">${h.first||''}</div></span></button>`).join('')}</div>`;
 }
 function tableHtml(t){
-  return `<div class="tw"><table>${t.title?`<caption>${md(t.title)}</caption>`:''}${t.head&&t.head.length?`<thead><tr>${t.head.map(h=>`<th>${md(h)}</th>`).join('')}</tr></thead>`:''}<tbody>${t.rows.map(r=>`<tr>${r.map(c=>`<td>${md(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  // t.s: 행마다 풀어 쓴 문장(있으면 행 아래 병합 칸으로)
+  const sRow=i=>t.s&&t.s[i]?`<tr class="trs" data-i="${i}"><td colspan="${t.rows[i].length}">${esc(t.s[i])}</td></tr>`:'';
+  return `<div class="tw"><table>${t.title?`<caption>${md(t.title)}</caption>`:''}${t.head&&t.head.length?`<thead><tr>${t.head.map(h=>`<th>${md(h)}</th>`).join('')}</tr></thead>`:''}<tbody>${t.rows.map((r,i)=>`<tr>${r.map(c=>`<td>${md(c)}</td>`).join('')}</tr>${sRow(i)}`).join('')}</tbody></table></div>`;
 }
 // 틀린 지문과 바로잡은 문장을 낱말 단위로 비교해 바뀐 곳만 표시
 function wordDiff(a,b){
@@ -1407,7 +1413,7 @@ function renderPatDetail(id){
     ${p.pts?p.pts.map((b,j)=>`<div class="pblk" data-psec="b${j}">${b.h?`<div class="ph"><span>${esc(b.h)}</span>${secBtn('b'+j)}</div>`:''}<ul>${b.li.map((x,i)=>`<li>${ptLine(x)}${b.s&&b.s[i]?`<span class="pf">${esc(b.s[i])}</span>`:''}</li>`).join('')}</ul></div>`).join(''):`<ul class="prule">${p.rule.map(r=>`<li>${md(r)}</li>`).join('')}</ul>`}
     ${p.table?tableHtml(p.table):''}
     ${p.exceptions&&p.exceptions.length?`<div class="pexc"><b>예외</b>${p.exceptions.map(md).join('<br>')}</div>`:''}
-    <div class="sech"><h3>기출로 확인 ${p.ex.length}개</h3>${patRdCnt(id,p)}<button class="chipbtn ${pt.hide?'on':''}" id="hideAns">${pt.hide?'답 가림':'답 가리기'}</button></div>
+    <div class="sech"><h3>기출로 확인 ${p.ex.length}개</h3>${secBtn('ex')}${patRdCnt(id,p)}<button class="chipbtn ${pt.hide?'on':''}" id="hideAns">${pt.hide?'답 가림':'답 가리기'}</button></div>
     <p class="muted" style="font-size:12px;margin:0 0 2px">${pt.hide?'위 규칙으로 O/X를 먼저 정하고 지문을 눌러 확인하세요. 하나씩 다 눌러 보면 ✓ 읽었어요.':`빨간 줄은 출제자가 바꾼 말, 주황 칸은 그럴듯하게 지어낸 말, 회색 줄은 연결만 다듬은 곳, 초록은 바로잡은 말.${patReadToday(id)?'':' ✓ 읽었어요는 답을 가리고 하나씩 눌러 봐야 켜집니다.'}`}</p>
     <ul class="oxl ${pt.hide?'hideans':''}" id="oxl">${p.ex.map((o,i,a)=>patOxHtml(o,i,a).replace('<li class="oxi"',`<li class="oxi${patOpenSet(id).has(i)?' did':''}"`)).join('')}</ul>
     <div class="trapbox"><b>출제자가 바꾸는 자리</b>${md(p.trap)}</div>
@@ -1421,6 +1427,13 @@ function renderPatDetail(id){
   main.querySelector('#hideAns').onclick=()=>{ pt.hide=!pt.hide; keepY(()=>renderPatDetail(id)); };
   const lo=main.querySelector('#listenOne'); if(lo) lo.onclick=()=>apStart(list.map(x=>x.id),id,0);
   main.querySelectorAll('[data-at]').forEach(b=>b.onclick=()=>apStart(list.map(x=>x.id),id,pa[b.dataset.at]));  // 그 부분부터, 가만히 두면 다음 부분·다음 패턴
+  // 기출 지문마다 ▶(10-25 PD): 그 지문부터(사례 → 지문 → 2초 → 정답·해설). 누르기만 하고 지문을 펼치지는 않는다
+  // 표 문장 칸·기출 지문마다 ▶: 그 자리부터 (표는 문장만 읽는다)
+  const addPlay=(el,k,host,label)=>{ if(!pa||pa[k]==null) return; el.dataset.psec=k; const b=document.createElement('button'); b.className='psec'; b.textContent='▶'; b.setAttribute('aria-label',label);
+    b.onclick=ev=>{ ev.stopPropagation(); apStart(list.map(x=>x.id),id,pa[k]); }; host.prepend(b); };
+  main.querySelectorAll('.tw tr.trs').forEach(tr=>addPlay(tr,'t'+tr.dataset.i,tr.querySelector('td'),'이 행부터 듣기'));
+  main.querySelectorAll('#oxl .oxi').forEach(li=>addPlay(li,'e'+li.dataset.i,li.querySelector('.h'),'이 지문부터 듣기'));
+  main.querySelectorAll('#oxl .oxi .h .psec').forEach(b=>b.parentNode.appendChild(b));  // 지문 ▶는 오른쪽 끝으로
   apMark();
   bindOx(li=>patOpenEx(id,p,li));
   const rc=main.querySelector('#runCards'); if(rc) rc.onclick=()=>{ pt.from=null; runCards(live); };  main.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>{ bk.sec=b.dataset.book; bk.memo=false; bk.from='pat'; goView('book'); });
