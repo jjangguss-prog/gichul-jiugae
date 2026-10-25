@@ -1167,9 +1167,12 @@ function searchResults(q){
   return `<div class="card" style="padding:6px 14px">${hits.slice(0,40).map(h=>`<button class="srow" data-sec="${h.s.id}"><span class="tag ${h.s.grade}">${h.s.grade}</span><span class="t">${esc(h.s.title)} <span class="muted" style="font-size:12px">${h.s.ch[0]==='C'?'민법':'학개론'} · ${h.n}곳</span><div class="hit">${h.first||''}</div></span></button>`).join('')}</div>`;
 }
 function tableHtml(t){
-  // t.s: 행마다 풀어 쓴 문장(있으면 행 아래 병합 칸으로)
-  const sRow=i=>t.s&&t.s[i]?`<tr class="trs" data-i="${i}"><td colspan="${t.rows[i].length}">${esc(t.s[i])}</td></tr>`:'';
-  return `<div class="tw"><table>${t.title?`<caption>${md(t.title)}</caption>`:''}${t.head&&t.head.length?`<thead><tr>${t.head.map(h=>`<th>${md(h)}</th>`).join('')}</tr></thead>`:''}<tbody>${t.rows.map((r,i)=>`<tr>${r.map(c=>`<td>${md(c)}</td>`).join('')}</tr>${sRow(i)}`).join('')}</tbody></table></div>`;
+  // t.s: 행마다 풀어 쓴 문장. 첫 칸(개념 이름)은 두 줄로 세로 병합해 개념별 묶음을 유지하고,
+  // 문장은 나머지 칸만 병합한 줄에 쓴다(10-25 PD: '취소권' 밑까지 병합하지 말고 기간·출발점 칸만)
+  const has=i=>t.s&&t.s[i]&&t.rows[i].length>1;
+  const row=(r,i)=>`<tr>${r.map((c,k)=>`<td${k===0&&has(i)?' rowspan="2"':''}>${md(c)}</td>`).join('')}</tr>`
+    +(has(i)?`<tr class="trs" data-i="${i}"><td colspan="${t.rows[i].length-1}">${esc(t.s[i])}</td></tr>`:'');
+  return `<div class="tw"><table>${t.title?`<caption>${md(t.title)}</caption>`:''}${t.head&&t.head.length?`<thead><tr>${t.head.map(h=>`<th>${md(h)}</th>`).join('')}</tr></thead>`:''}<tbody>${t.rows.map(row).join('')}</tbody></table></div>`;
 }
 // 틀린 지문과 바로잡은 문장을 낱말 단위로 비교해 바뀐 곳만 표시
 function wordDiff(a,b){
