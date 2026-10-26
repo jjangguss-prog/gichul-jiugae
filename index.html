@@ -314,6 +314,21 @@ del.l{color:var(--muted);opacity:.75;text-decoration:line-through;text-decoratio
 .flipnote .fix{margin:4px 0} .flipnote .wy2{font-size:14.5px;margin:4px 0 6px} .flipnote .og{border-top:1px solid var(--line);padding-top:6px;margin-top:6px}
 .flipnote del:not([class]){color:var(--x);text-decoration:line-through;text-decoration-thickness:2px}
 .flipnote .hl{background:#fff3a3;color:#000;border-radius:3px;padding:0 2px}
+/* 타시험(10-26): 다른 시험이 올해 먼저 낸 논점. 형광펜(mark.tk) = 출제자가 바꿔 치는 자리, 가린 채 줄을 눌러 확인 */
+mark.tk{background:linear-gradient(transparent 40%,#fff3a3 40%,#fff3a3 92%,transparent 92%);color:inherit;padding:0 1px;border-radius:2px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+[data-theme="dark"] mark.tk{background:linear-gradient(transparent 40%,rgba(255,200,0,.35) 40%,rgba(255,200,0,.35) 92%,transparent 92%)}
+.hideans .tsi:not(.open) mark.tk{background:var(--line);color:transparent;border-radius:4px}
+.tsi .tx{font-size:16px;line-height:1.7}
+.tsi .more{margin:6px 0 0}
+.tsx{font-size:14px;background:var(--x-bg);border-radius:8px;padding:5px 9px;margin-top:4px;color:var(--ink2);line-height:1.55}
+.tsx b{color:var(--x);margin-right:6px;font-size:12.5px}
+.tsx del{color:var(--x);text-decoration-thickness:2px}
+.tsm{font-size:12.5px;color:var(--muted);margin-top:5px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;line-height:1.5}
+.tsm .tag{margin-right:0}
+.tag.r1{background:var(--x);color:#fff}.tag.r2{background:var(--x-bg);color:var(--x)}.tag.r3,.tag.r0{background:var(--line);color:var(--ink2)}
+.tag.nw{background:var(--x-bg);color:var(--x)}.tag.gd{background:var(--line);color:var(--ink2)}.tag.fr{background:var(--acc-bg);color:var(--acc)}
+.oth{font-size:12.5px;font-weight:800;color:var(--muted);padding:12px 4px 2px;border-bottom:1px solid var(--line)}
+.srow .tag{flex:0 0 auto}
 </style>
 </head>
 <body>
@@ -325,6 +340,7 @@ del.l{color:var(--muted);opacity:.75;text-decoration:line-through;text-decoratio
 <nav class="tabs">
   <button data-v="today" class="on"><b>▶</b>오늘</button>
   <button data-v="pat"><b>★</b>패턴</button>
+  <button data-v="other"><b>⇄</b>타시험</button>
   <button data-v="book"><b>▤</b>개념</button>
   <button data-v="concepts"><b>☰</b>논점</button>
   <button data-v="exam"><b>✎</b>실전</button>
@@ -352,6 +368,7 @@ function normalize(){
   S.book=S.book||{read:{},last:'',hide:false,subj:'civ'}; S.book.read=S.book.read||{}; // read: 섹션 id -> {n:읽은 날 수, d:마지막 날}
   S.pat=S.pat||{};          // 패턴 id -> {n:본 날 수, d:마지막 본 날} (예전 기록은 '외웠다' 누른 날짜 문자열)
   S.rep=S.rep||{};          // 또 나온 문장 ref -> {n:본 수, ok:맞힌 수, l:마지막 1맞음/0틀림, d:날짜}
+  S.tsx=S.tsx||{};          // 타시험 카드 id(K1·R1…) -> {n:본 날 수, d:마지막 본 날} (동기화 단위 s/)
   S.ddo=S.ddo||{};          // 다른 기기의 daily (동기화로 받음)
   S._epoch=S._epoch||0;     // '처음부터'·붙여넣어 불러오기를 누른 시각
   if(!S._ts) S._ts=legacyTs(); // 동기화 단위 -> 바뀐 시각
@@ -363,7 +380,7 @@ function normalize(){
    기기끼리 합칠 때 단위마다 더 늦게 바뀐 쪽을 쓴다. 하루 공부량은 기기마다 따로 쌓아 더하고, 판단 기록은 합집합.
    저장소는 PD의 GitHub 비공개 gist(jiugae-sync.json). 토큰은 기록과 따로 이 기기에만 둔다(설정의 복사 글에 안 섞이게). */
 const DEV=(()=>{ try{ let d=localStorage.getItem('jiugae-dev'); if(!d){ d=Math.random().toString(36).slice(2,10); localStorage.setItem('jiugae-dev',d); } return d; }catch(e){ return 'tmp'; } })();
-const NOTUNIT=['cards','exam','confused','book','pat','rep','log','daily','ddo','dataver','notice','_ts','_epoch'];
+const NOTUNIT=['cards','exam','confused','book','pat','rep','tsx','log','daily','ddo','dataver','notice','_ts','_epoch'];
 const UNIT_DEF={'p/minutes':'60','b/last':'""','b/hide':'false','b/subj':'"civ"'}; // 처음 값은 다른 기기 값에 진다
 let SNAP=null; // 지난 save() 때의 단위들
 function dayMs(d){ const x=Date.parse((d||'')+'T00:00:00+09:00'); return isNaN(x)?1:x; }
@@ -376,12 +393,13 @@ function units(st){
   for(const [k,v] of Object.entries(st.book||{})){ if(k==='read'){ for(const [i,d] of Object.entries(v||{})) u['r/'+i]=J(d); } else u['b/'+k]=J(v); }
   for(const [k,v] of Object.entries(st.pat||{})) u['t/'+k]=J(v);
   for(const [k,v] of Object.entries(st.rep||{})) u['e/'+k]=J(v);
+  for(const [k,v] of Object.entries(st.tsx||{})) u['s/'+k]=J(v);
   for(const [k,v] of Object.entries(st)) if(!NOTUNIT.includes(k)) u['p/'+k]=J(v);
   return u;
 }
 function setUnit(key,json){
   const p=key[0], k=key.slice(2);
-  const o=p==='c'?S.cards:p==='x'?S.exam:p==='f'?S.confused:p==='r'?S.book.read:p==='b'?S.book:p==='t'?S.pat:p==='e'?S.rep:S;
+  const o=p==='c'?S.cards:p==='x'?S.exam:p==='f'?S.confused:p==='r'?S.book.read:p==='b'?S.book:p==='t'?S.pat:p==='e'?S.rep:p==='s'?(S.tsx||(S.tsx={})):S;
   if(json===undefined) delete o[k]; else o[k]=JSON.parse(json);
 }
 // 동기화 전부터 있던 기록: 카드는 마지막 본 날짜(같은 날이면 본 수), 나머지는 적힌 날짜로 시각을 매긴다
@@ -392,7 +410,7 @@ function legacyTs(){
     ts[key]=p==='c'?(v.last?dayMs(v.last)+Math.min(v.seen||0,999):1)
       :p==='x'?(v&&v.date?dayMs(v.date):1)
       :(p==='f'||p==='r'||p==='t')&&typeof v==='string'?dayMs(v)
-      :(p==='e'||p==='t'||p==='r')&&v&&v.d?dayMs(v.d)+Math.min(v.n||0,999)
+      :(p==='e'||p==='t'||p==='r'||p==='s')&&v&&v.d?dayMs(v.d)+Math.min(v.n||0,999)
       :UNIT_DEF[key]===j?0:1;
   }
   return ts;
@@ -564,7 +582,7 @@ function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.rand
 /* ===== 화면 공통 ===== */
 const main=document.getElementById('main');
 let view='today', session=null;
-document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{ if(b.dataset.v==='book'&&view==='book'){ bk.sec=null; bk.memo=false; bk.from=null; } view=b.dataset.v; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{ if(b.dataset.v==='book'&&view==='book'){ bk.sec=null; bk.memo=false; bk.from=null; } if(b.dataset.v==='other'&&view==='other') ot.id=null; view=b.dataset.v; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
 function goView(v){ view=v; document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.toggle('on',x.dataset.v===v)); render(); }
 function esc(s){ return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
 // 해설 글: **개념어** 굵게, ⟪결론⟫ 형광 밑줄(표시는 앱/강조.py가 넣는다). 조문·판례 번호는 작은 회색으로 물린다.
@@ -598,7 +616,7 @@ function seenRec(v){ return !v?{n:0,d:''}:typeof v==='string'?{n:1,d:v}:v; }
 function markSeen(o,id){ const s=seenRec(o[id]), t=today(); if(s.d===t) return false; o[id]={n:s.n+1, d:t}; return true; }
 // 회독: 지금 회독 = 가장 적게 본 것의 본 날 수 + 1, done = 이번 회독에 본 수
 function seenPass(o,ids){ const ns=ids.map(id=>seenRec(o[id]).n), pass=Math.min(...ns)+1; return {pass, done:ns.filter(n=>n>=pass).length, total:ns.length}; }
-function render(){ header(); window.scrollTo(0,0); ({today:renderToday, pat:renderPat, book:renderBook, concepts:renderConcepts, exam:renderExam, stats:renderStats, settings:renderSettings})[view](); }
+function render(){ header(); window.scrollTo(0,0); ({today:renderToday, pat:renderPat, other:renderOther, book:renderBook, concepts:renderConcepts, exam:renderExam, stats:renderStats, settings:renderSettings})[view](); }
 
 /* ===== 오늘 ===== */
 let NOTE='';
@@ -1596,6 +1614,104 @@ function secPatHtml(sid){
 }
 
 /* ===== 시작 ===== */
+/* ===== 타시험 (10-26 PD) =====
+   2026년 8개 시험(감평·주관·노무·행정·세무·법원직 9급·법무사·변시) 기출에서 37회에 다시 나올 만한 논점.
+   자료는 tasihum.json(타시험/만들기.py가 만듦). 민법 카드 K1~K34는 여러 줄, 학개론 R1~R42는 한 줄.
+   답을 가린 채 줄을 하나씩 다 눌러 보면 ✓(S.tsx, 하루에 한 번만 셈). 패턴의 '기출로 확인'과 같은 방식. */
+let TS=null, tsLoading=null;
+const ot={tab:'civ', id:null, hide:true, r1:false, nw:false, tabY:0};
+const TS_SEC={'총칙':'법률행위 (총칙)','물권':'물권','계약':'계약·매매·임대차','특별법':'민사특별법','직전':'시험 직전 판례 · 참고만'};
+const TS_EX=['감평','주관','노무','행정','세무','9급','법무','변시'];
+function loadTs(){
+  if(TS) return Promise.resolve(TS);
+  if(!tsLoading) tsLoading=fetch('tasihum.json?v='+Date.now()).then(r=>r.json()).then(d=>{
+    // 학개론 한 줄짜리도 민법 카드와 같은 꼴로 맞춘다
+    d.rea=d.rea.map(a=>({id:a.id, subj:'rea', rank:a.score===3?1:a.score===2?2:3, title:a.topic, why:a.why, unit:a.unit,
+      g:a.gongin_rounds&&a.gongin_rounds.length?a.gongin_rounds.join('·')+'회':'미출제', gn:a.gongin_note, fresh:a.fresh,
+      lines:[{t:a.statement, trap:a.trap, calc:a.calc, r:a.src}]}));
+    d.civ.forEach(c=>c.subj='civ');
+    TS=d; return d;
+  }).catch(e=>{ tsLoading=null; throw e; });
+  return tsLoading;
+}
+const tsList=s=>TS[s];
+const tsById=id=>TS.civ.find(c=>c.id===id)||TS.rea.find(c=>c.id===id);
+const tsHl=s=>esc(s).replace(/\[\[(.+?)\]\]/g,'<mark class="tk">$1</mark>');
+const tsNew=g=>!!g&&g.indexOf('미출제')===0;
+const tsG=g=>!g?'':tsNew(g)?'<span class="tag nw">공인 미출제</span>':`<span class="tag gd">공인 ${esc(g)}</span>`;
+function tsExams(c){ const s=[c.refs||'',...c.lines.map(l=>l.r||'')].join(' '); return c.subj==='civ'?TS_EX.filter(e=>s.indexOf(e)>=0).length:0; }
+function tsRank(c){ return `<span class="tag r${c.rank}">${c.rank?c.rank+'순위':'참고'}</span>`; }
+const tsOpened={};
+function tsOpenSet(id){ const k=today()+'|'+id; return tsOpened[k]||(tsOpened[k]=new Set()); }
+function tsPass(s){ return seenPass(S.tsx,tsList(s).map(c=>c.id)); }
+function renderOther(){
+  if(!TS){
+    main.innerHTML='<div class="card muted">타시험 논점을 불러오는 중…</div>';
+    loadTs().then(()=>{ if(view==='other') renderOther(); }).catch(()=>{ if(view==='other') main.innerHTML='<div class="card">타시험 자료(tasihum.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
+    return;
+  }
+  if(ot.id&&tsById(ot.id)) renderOtherDetail(ot.id); else renderOtherList();
+}
+function renderOtherList(){
+  const tab=ot.tab, pp=tsPass(tab), seen=c=>seenRec(S.tsx[c.id]).n>=pp.pass;
+  let L=tsList(tab);
+  if(ot.r1) L=L.filter(c=>c.rank===1);
+  if(ot.nw) L=L.filter(c=>tsNew(c.g)||c.lines.some(l=>tsNew(l.g)));
+  const row=c=>{ const n=tsExams(c); return `<button class="srow ${seen(c)?'read':''}" data-oid="${c.id}"><span class="ck">${seen(c)?'✓':''}</span>${tsRank(c)}<span class="t"><b>${esc(c.title)}</b><small>${[n?`올해 ${n}곳`:'',c.subj==='rea'?esc(c.unit):'',c.g?(tsNew(c.g)?'공인 미출제':'공인 '+esc(c.g)):''].filter(Boolean).join(' · ')}</small></span><span class="f">${c.lines.length>1?c.lines.length+'줄':''}</span></button>`; };
+  let body='';
+  if(tab==='civ'){ for(const sec of Object.keys(TS_SEC)){ const cs=L.filter(c=>c.sec===sec); if(cs.length) body+=`<div class="oth">${TS_SEC[sec]}</div>`+cs.map(row).join(''); } }
+  else { for(const [r,lab] of [[1,'1순위 · 공인중개사에 거의 안 나온 논점'],[2,'2순위 · 단골 논점의 새 각도'],[3,'3순위 · 공인중개사와 같은 각도']]){ const cs=L.filter(c=>c.rank===r); if(cs.length) body+=`<div class="oth">${lab}</div>`+cs.map(row).join(''); } }
+  main.innerHTML=`<div class="card"><div class="row"><b style="font-size:19px">다른 시험이 올해 먼저 낸 논점</b><span class="muted">${pp.pass}회독 ${pp.done}/${pp.total}</span></div>
+    <p style="margin:6px 0 0;font-size:15px;line-height:1.6">2026년 8개 시험(감평·주관·노무·행정·세무·법원직 9급·법무사·변시) 기출에서 37회에 다시 나올 만한 것만 모았다. <b>형광펜 자리</b>(출제자가 바꿔 치는 말)를 가린 채 줄을 눌러 확인한다.</p>
+    <p class="muted" style="margin:4px 0 0;font-size:12px">카드 안 줄을 하나씩 다 눌러 보면 ✓. ${tab==='civ'?'1순위 = 올해 시험 3곳 이상, 2순위 = 2곳이거나 최신 판례가 시험에 나옴.':'학개론은 감정평가사 37회(4. 4.) 부동산학원론에서 골랐다.'}</p>
+    <div class="pbar2"><i style="width:${pp.total?Math.round(100*pp.done/pp.total):0}%"></i></div></div>
+  <div class="seg">${[['civ',`민법 ${TS.civ.length}`],['rea',`학개론 ${TS.rea.length}`]].map(([k,l])=>`<button data-otab="${k}" class="${tab===k?'on':''}">${l}</button>`).join('')}</div>
+  <div class="chips"><button class="chipbtn ${ot.r1?'on':''}" id="oR1">1순위만</button><button class="chipbtn ${ot.nw?'on':''}" id="oNw">공인 미출제만</button></div>
+  ${body?`<div class="card" style="padding:2px 12px">${body}</div>`:'<div class="card muted">조건에 맞는 논점이 없습니다.</div>'}`;
+  main.querySelectorAll('[data-otab]').forEach(b=>b.onclick=()=>{ ot.tab=b.dataset.otab; keepY(renderOtherList); });
+  main.querySelector('#oR1').onclick=()=>{ ot.r1=!ot.r1; keepY(renderOtherList); };
+  main.querySelector('#oNw').onclick=()=>{ ot.nw=!ot.nw; keepY(renderOtherList); };
+  main.querySelectorAll('[data-oid]').forEach(b=>b.onclick=()=>{ ot.tabY=window.scrollY; ot.id=b.dataset.oid; render(); });
+  if(ot.tabY){ const y=ot.tabY; ot.tabY=0; requestAnimationFrame(()=>window.scrollTo(0,y)); }
+}
+function tsRdTag(c){
+  const sn=seenRec(S.tsx[c.id]);
+  return sn.d===today()?`<span class="tag rd1" id="tsRd">✓ 읽었어요${sn.n>1?` · ${sn.n}번째`:''}</span>`:`<span class="tag rd0" id="tsRd">${tsOpenSet(c.id).size}/${c.lines.length} 눌러 보면 ✓</span>`;
+}
+function tsCnt(c){ const k=tsOpenSet(c.id).size, n=c.lines.length; return k>=n?`<span class="prd on" id="tsCnt">✓ ${n}줄 다 눌러 봄</span>`:`<span class="prd" id="tsCnt">${k}/${n} 눌러 봄</span>`; }
+function tsLineHtml(c,l,i){
+  const meta=[l.r?`<span>${esc(l.r)}</span>`:'', tsG(l.g), l.f?`<span class="tag fr">${esc(l.f)}</span>`:''].filter(Boolean).join('');
+  return `<li class="oxi tsi${tsOpenSet(c.id).has(i)?' did':''}" data-i="${i}"><div class="tx">${tsHl(l.t)}</div>
+    <div class="more">${l.x?`<div class="tsx"><b>틀린 꼴</b><del>${esc(l.x)}</del></div>`:''}${l.trap?`<div class="tsx"><b>바꿔 나오는 자리</b>${esc(l.trap)}</div>`:''}${l.calc?`<div class="calc" style="margin-top:4px">풀이  ${esc(l.calc)}</div>`:''}${meta?`<div class="tsm">${meta}</div>`:''}</div></li>`;
+}
+function renderOtherDetail(id){
+  const c=tsById(id), list=tsList(c.subj), k=list.indexOf(c), prev=list[k-1], next=list[k+1], n=tsExams(c);
+  main.innerHTML=`<div class="reader">
+    <div class="row"><button class="linkbtn" id="oList">‹ 타시험 목록</button><span class="muted" style="font-size:12px">${c.subj==='civ'?'민법':'학개론'} ${k+1} / ${list.length}</span></div>
+    <h2 class="st">${esc(c.title)}</h2>
+    <div>${tsRank(c)}${n?`<span class="tag">올해 ${n}곳</span>`:''}${tsG(c.g)}${c.fresh?'<span class="tag fr">최근 바뀐 제도</span>':''}${tsRdTag(c)}</div>
+    ${c.why?`<p class="muted" style="font-size:14px;margin:8px 0 0;line-height:1.55">${esc(c.why)}</p>`:''}
+    <div class="sech"><h3>눌러서 확인 ${c.lines.length}줄</h3>${tsCnt(c)}<button class="chipbtn ${ot.hide?'on':''}" id="oHide">${ot.hide?'답 가림':'답 가리기'}</button></div>
+    <p class="muted" style="font-size:12px;margin:0 0 2px">${ot.hide?'회색 자리에 들어갈 말을 먼저 떠올리고 줄을 눌러 확인하세요. 다 눌러 보면 ✓ 읽었어요.':'노란 형광펜은 출제자가 바꿔 치는 자리, 빨간 줄은 다른 시험이 실제로 바꿔 낸 틀린 꼴. ✓ 읽었어요는 답을 가리고 눌러 볼 때만 셉니다.'}</p>
+    <ul class="oxl ${ot.hide?'hideans':''}" id="tsl">${c.lines.map((l,i)=>tsLineHtml(c,l,i)).join('')}</ul>
+    ${c.refs?`<div class="law" style="margin-top:8px">나온 곳: ${esc(c.refs)}</div>`:''}
+    ${c.gn?`<div class="law" style="margin-top:4px">공인중개사 기출: ${esc(c.gn)}${c.fresh?' · '+esc(c.fresh):''}</div>`:''}
+    <div class="pn">${prev?`<button data-ogo="${prev.id}"><span>‹ 이전</span>${esc(prev.title)}</button>`:'<span style="flex:1"></span>'}${next?`<button class="nx" data-ogo="${next.id}"><span>다음 ›</span>${esc(next.title)}</button>`:'<span style="flex:1"></span>'}</div>
+  </div>`;
+  main.querySelector('#oList').onclick=()=>{ ot.id=null; ot.tab=c.subj; render(); };
+  main.querySelector('#oHide').onclick=()=>{ ot.hide=!ot.hide; keepY(()=>renderOtherDetail(id)); };
+  main.querySelectorAll('#tsl .tsi').forEach(li=>li.onclick=()=>{
+    if(!ot.hide) return;
+    li.classList.toggle('open');
+    if(!li.classList.contains('open')) return;
+    li.classList.add('did'); tsOpenSet(id).add(+li.dataset.i);
+    if(tsOpenSet(id).size>=c.lines.length&&markSeen(S.tsx,id)) save();
+    main.querySelector('#tsRd').outerHTML=tsRdTag(c);
+    main.querySelector('#tsCnt').outerHTML=tsCnt(c);
+  });
+  main.querySelectorAll('[data-ogo]').forEach(b=>b.onclick=()=>{ ot.id=b.dataset.ogo; render(); });
+}
+
 function migrate(){
   let n=0; const t=today(); const byId={}; D.cards.forEach(c=>byId[c.id]=c);
   // 다시 시작해도 바뀐 시각은 그대로 둔다: 다른 기기가 새 카드로 공부한 기록이 있으면 그쪽이 이기게
