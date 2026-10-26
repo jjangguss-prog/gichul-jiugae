@@ -1147,6 +1147,7 @@ function renderBook(){
     loadBook().then(()=>{ if(view==='book') renderBook(); }).catch(()=>{ if(view==='book') main.innerHTML='<div class="card">개념서(book.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
     return;
   }
+  if(!AU) loadAudio().then(a=>{ if(view==='book'&&!bk.sec&&a.memo) keepY(renderBook); });  // 외우기 모음 듣기 버튼
   if(bk.sec&&B.sections[bk.sec]) return renderSection(bk.sec);
   if(bk.memo) return renderMemos();
   renderToc();
@@ -1158,7 +1159,7 @@ function renderToc(){
   let html=`<div class="seg">${B.subjects.map(x=>`<button data-subj="${x.id}" class="${x.id===subj?'on':''}">${x.id==='civ'?'민법':'학개론'}</button>`).join('')}</div>
   <input class="search" id="bks" type="search" placeholder="개념서 검색 (예: 유치권, 저당상수)" value="${esc(bk.q)}">
   ${last&&!bk.q?`<button class="cont" data-sec="${last.id}"><span>이어 읽기</span>${esc(last.title)}</button>`:''}
-  <div class="row" style="margin:0 2px 10px"><span class="muted">${sb.name} · ${bp.pass===1?'읽은 섹션':bp.pass+'회독'} ${bp.done}/${bp.total}</span><button class="linkbtn" id="memo">외우기 모음 ›</button></div>`;
+  <div class="row" style="margin:0 2px 10px"><span class="muted">${sb.name} · ${bp.pass===1?'읽은 섹션':bp.pass+'회독'} ${bp.done}/${bp.total}</span><button class="linkbtn" id="memo">외우기 모음${AU&&AU.memo?' · 🔊 듣기':''} ›</button></div>`;
   if(bk.q.trim()) html+=searchResults(bk.q.trim());
   else {
     for(const cid of sb.chapters){
@@ -1295,14 +1296,21 @@ function renderMemos(){
     <h2 class="st">외우기 모음 · ${subj==='civ'?'민법':'학개론'}</h2>
     <p class="muted" style="margin:0 0 8px">시험 전날과 당일 아침에 읽는 한 줄씩. 제목을 누르면 그 섹션으로 갑니다.</p>
     <div class="seg">${B.subjects.map(x=>`<button data-subj="${x.id}" class="${x.id===subj?'on':''}">${x.id==='civ'?'민법':'학개론'}</button>`).join('')}</div>`;
+  // 듣기(10-27): 장마다 파일 하나, A·B급 섹션의 제목 → 외우기 한 줄. 장 ▶ = 그 장부터, 섹션 ▶ = 그 섹션부터, 가만히 두면 다음 장으로
+  const chs=sb.chapters.filter(cid=>hasAudio(cid,'memo')), parts=cid=>(hasAudio(cid,'memo')&&AU.memo[cid].parts)||{};
+  if(chs.length) html+=`<div class="btns" style="margin-bottom:12px"><button class="btn ghost small" id="memoAu">🔊 내 목소리로 ${subj==='civ'?'민법':'학개론'} 외우기 한 줄 듣기 (A·B급)</button></div>`;
+  const play=(cid,id,label)=>`<button class="psec" data-mch="${cid}"${id?` data-msec="${id}"`:''} aria-label="${label}">▶</button>`;
   for(const cid of sb.chapters){
-    const ch=B.chapters[cid];
-    html+=`<div class="card"><b>${esc(ch.title)}</b>${ch.sections.map(id=>{ const s=B.sections[id]; return s.memo?`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><button class="linkbtn" data-sec="${id}" style="font-size:13px;text-align:left"><span class="tag ${s.grade}" style="font-size:11px">${s.grade}</span>${esc(s.title)}</button><div style="font-size:15px;line-height:1.6;font-weight:700">${md(s.memo)}</div></div>`:''; }).join('')}</div>`;
+    const ch=B.chapters[cid], pa=parts(cid);
+    html+=`<div class="card"><div class="row" data-mch="${cid}"><b>${esc(ch.title)}</b>${hasAudio(cid,'memo')?play(cid,null,'이 장부터 듣기'):''}</div>${ch.sections.map(id=>{ const s=B.sections[id]; return s.memo?`<div style="padding:8px 0;border-bottom:1px solid var(--line)"${pa[id]!=null?` data-psec="${id}"`:''}><div class="row" style="align-items:flex-start"><button class="linkbtn" data-sec="${id}" style="font-size:13px;text-align:left"><span class="tag ${s.grade}" style="font-size:11px">${s.grade}</span>${esc(s.title)}</button>${pa[id]!=null?play(cid,id,'이 섹션부터 듣기'):''}</div><div style="font-size:15px;line-height:1.6;font-weight:700">${md(s.memo)}</div></div>`:''; }).join('')}</div>`;
   }
   main.innerHTML=html+'</div>';
   main.querySelector('#toToc').onclick=()=>{ bk.memo=false; render(); };
   main.querySelectorAll('[data-subj]').forEach(b=>b.onclick=()=>{ st.subj=b.dataset.subj; save(); renderMemos(); window.scrollTo(0,0); });
   main.querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>openSection(b.dataset.sec));
+  const ma=main.querySelector('#memoAu'); if(ma) ma.onclick=()=>apStart(chs,null,null,'memo');
+  main.querySelectorAll('button[data-mch]').forEach(b=>b.onclick=()=>{ const cid=b.dataset.mch, id=b.dataset.msec; apStart(chs,cid,id?parts(cid)[id]:0,'memo'); });
+  apMark();
 }
 
 /* ===== 패턴 =====
@@ -1484,19 +1492,22 @@ function renderPatMemos(){
    오디오는 따로 내릴 수 있게 전용 저장소(gichul-jiugae-audio)에 둔다. audio.json = {patterns:{id:{file,sec}}}.
    못 불러오면 듣기 버튼을 안 띄운다. 듣기는 '✓ 읽었어요'로 세지 않는다(읽음은 기출 지문을 눌러 봐야). 재생 빠르기는 이 기기에만. */
 const AUDIO_BASE=(()=>{ const d='https://jjangguss-prog.github.io/gichul-jiugae-audio/'; try{ return localStorage.getItem('jiugae-audio-base')||d; }catch(e){ return d; } })();
+// 10-27: 듣기 묶음이 늘었다. audio.json의 patterns 옆에 tsx(타시험 카드)·rep(또 나온 문장)·memo(개념서 장별 외우기 한 줄, A·B급).
+// 재생 막대 하나로 틀고, 지금 무슨 묶음을 트는지는 ap.kind
 let AU=null, auLoading=null;
-const ap={q:[], i:0, el:null};
+const ap={q:[], i:0, el:null, kind:'patterns'};
 function loadAudio(){
   if(AU) return Promise.resolve(AU);
   if(!auLoading) auLoading=fetch(AUDIO_BASE+'audio.json?v='+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null).then(d=>{ AU=d&&d.patterns?d:{patterns:{}}; return AU; });
   return auLoading;
 }
-function hasAudio(id){ return !!(AU&&AU.patterns[id]); }
+function hasAudio(id,kind){ const k=kind||'patterns'; return !!(AU&&AU[k]&&AU[k][id]); }
+function auItem(){ return AU&&AU[ap.kind]&&AU[ap.kind][ap.q[ap.i]]; }
 function apRate(){ try{ return +localStorage.getItem('jiugae-rate')||1; }catch(e){ return 1; } }
 function apEl(){
   if(ap.el) return ap.el;
   const bar=document.createElement('div'); bar.id='aplayer';
-  bar.innerHTML='<i class="pg"></i><button id="apPrev" aria-label="이전 패턴">⏮</button><button id="apPlay" aria-label="재생, 멈춤">⏸</button><button id="apNext" aria-label="다음 패턴">⏭</button><div class="ti" id="apTi"></div><button class="rt" id="apRate" aria-label="빠르기"></button><button id="apX" aria-label="닫기">✕</button>';
+  bar.innerHTML='<i class="pg"></i><button id="apPrev" aria-label="이전">⏮</button><button id="apPlay" aria-label="재생, 멈춤">⏸</button><button id="apNext" aria-label="다음">⏭</button><div class="ti" id="apTi"></div><button class="rt" id="apRate" aria-label="빠르기"></button><button id="apX" aria-label="닫기">✕</button>';
   document.body.appendChild(bar);
   const a=new Audio(); a.preload='auto';
   a.onended=()=>apGo(ap.i+1);
@@ -1506,34 +1517,55 @@ function apEl(){
   bar.querySelector('#apPrev').onclick=()=>{ if(a.currentTime>3) a.currentTime=0; else apGo(ap.i-1); };  // 3초 넘게 들었으면 처음부터
   bar.querySelector('#apNext').onclick=()=>apGo(ap.i+1);
   bar.querySelector('#apRate').onclick=()=>{ const R=[1,1.25,1.5], r=R[(R.indexOf(a.playbackRate)+1)%R.length]; a.defaultPlaybackRate=a.playbackRate=r; try{ localStorage.setItem('jiugae-rate',r); }catch(e){} apInfo(); };
-  bar.querySelector('#apTi').onclick=()=>{ const id=ap.q[ap.i]; if(id) openPat(id); };
+  bar.querySelector('#apTi').onclick=apOpen;
   bar.querySelector('#apX').onclick=()=>{ a.pause(); bar.classList.remove('on'); document.body.classList.remove('aplay'); apMark(); };
   if('mediaSession' in navigator){ const ms=navigator.mediaSession; ms.setActionHandler('play',()=>a.play()); ms.setActionHandler('pause',()=>a.pause()); ms.setActionHandler('previoustrack',()=>apGo(ap.i-1)); ms.setActionHandler('nexttrack',()=>apGo(ap.i+1)); }
   ap.el=a; return a;
 }
+// 재생 막대 제목: t 큰 글씨, s 작은 글씨, a 잠금화면 둘째 줄
+function apMeta(){
+  const id=ap.q[ap.i], n=`${ap.i+1}/${ap.q.length}`;
+  if(ap.kind==='tsx'){ const c=TS&&tsById(id); return c&&{t:c.title, s:`타시험 ${c.subj==='civ'?'민법':'학개론'} ${n} · 내 목소리`, a:'타시험 예상 논점'}; }
+  if(ap.kind==='rep'){ const r=P&&P.repeats.find(x=>x.ref===id); return r&&{t:r.st||r.text, s:`또 나온 문장 ${n} · ${r.rounds.length}번 나옴`, a:'또 나온 문장'}; }
+  if(ap.kind==='memo'){ const ch=B&&B.chapters[id]; return ch&&{t:ch.title, s:`외우기 한 줄 ${n} · A·B급`, a:'외우기 한 줄 · '+(ch.subject==='civ'?'민법':'학개론')}; }
+  const p=patById(id); if(!p) return null; const L=patsOf(p.subj);
+  return {t:patName(p), s:`${SUBJ[p.subj]} 패턴 ${L.indexOf(p)+1}/${L.length} · 내 목소리`, a:'기출 패턴 · '+SUBJ[p.subj]};
+}
 function apInfo(){
-  const p=patById(ap.q[ap.i]), bar=document.getElementById('aplayer'); if(!p||!bar) return;
-  const L=patsOf(p.subj);
-  bar.querySelector('#apTi').innerHTML=`${esc(patName(p))}<small>${SUBJ[p.subj]} 패턴 ${L.indexOf(p)+1}/${L.length} · 내 목소리</small>`;
+  const m=apMeta(), bar=document.getElementById('aplayer'); if(!m||!bar) return;
+  bar.querySelector('#apTi').innerHTML=`${esc(m.t)}<small>${esc(m.s)}</small>`;
   bar.querySelector('#apRate').textContent=ap.el.playbackRate+'×';
-  if('mediaSession' in navigator&&window.MediaMetadata) navigator.mediaSession.metadata=new MediaMetadata({title:patName(p), artist:'기출 패턴 · '+SUBJ[p.subj], album:'기출 지우개'});
+  if('mediaSession' in navigator&&window.MediaMetadata) navigator.mediaSession.metadata=new MediaMetadata({title:m.t, artist:m.a, album:'기출 지우개'});
+}
+// 재생 막대 제목을 누르면 지금 듣는 것이 있는 화면으로
+function apOpen(){
+  const id=ap.q[ap.i]; if(!id) return;
+  if(ap.kind==='patterns') return openPat(id);
+  if(ap.kind==='tsx'){ ot.id=id; return goView('other'); }
+  if(ap.kind==='rep'){ pt.id=null; pt.memo=false; pt.drill=null; pt.tab='rep'; return goView('pat'); }
+  if(ap.kind==='memo'&&B&&B.chapters[id]){
+    const st=bookState(); st.subj=B.chapters[id].subject; bk.sec=null; bk.memo=true; goView('book');
+    requestAnimationFrame(()=>{ const el=main.querySelector(`[data-mch="${id}"]`); if(el) el.scrollIntoView({block:'start'}); });
+  }
 }
 // at: 그 패턴 안에서 시작할 초(소제목 ▶). 듣던 패턴이면 다시 받지 않고 그 자리로만 옮긴다
 function apGo(i,at){
   const a=apEl();
   if(i<0||i>=ap.q.length){ a.pause(); return; }  // 목록 끝까지 들었으면 멈춘다
-  const url=AUDIO_BASE+AU.patterns[ap.q[i]].file;
+  const url=AUDIO_BASE+AU[ap.kind][ap.q[i]].file;
   if(i===ap.i&&a.src===url&&a.readyState>0){ if(at!=null) a.currentTime=at; }
   else { a.src=url; if(at) a.addEventListener('loadedmetadata',()=>{ a.currentTime=at; },{once:true}); }
   ap.i=i; a.defaultPlaybackRate=a.playbackRate=apRate(); a.play().catch(()=>{});
   document.getElementById('aplayer').classList.add('on'); document.body.classList.add('aplay');
   apInfo();
 }
-function apStart(ids,from,at){ const q=ids.filter(hasAudio); if(!q.length) return; if(q.join()!==ap.q.join()) ap.i=-1; ap.q=q; apGo(Math.max(0,q.indexOf(from)),at); }
-// 지금 읽는 소제목: 그 패턴 화면을 보고 있을 때만 파란 테두리
-function apSecNow(){ const it=AU&&AU.patterns[ap.q[ap.i]], pa=it&&it.parts; if(!pa||!ap.el) return null; let cur=null, best=-1; for(const k in pa){ const t=pa[k]; if(t<=ap.el.currentTime+0.05&&t>best){ best=t; cur=k; } } return cur; }
+// kind: 'patterns'(기본)·'tsx'·'rep'·'memo'
+function apStart(ids,from,at,kind){ const k=kind||'patterns', q=ids.filter(id=>hasAudio(id,k)); if(!q.length) return; if(k!==ap.kind||q.join()!==ap.q.join()) ap.i=-1; ap.kind=k; ap.q=q; apGo(Math.max(0,q.indexOf(from)),at); }
+// 지금 읽는 부분: 그 화면(패턴·타시험 카드·외우기 모음)을 보고 있을 때만 파란 테두리
+function apSecNow(){ const it=auItem(), pa=it&&it.parts; if(!pa||!ap.el) return null; let cur=null, best=-1; for(const k in pa){ const t=pa[k]; if(t<=ap.el.currentTime+0.05&&t>best){ best=t; cur=k; } } return cur; }
+function apHere(){ const id=ap.q[ap.i]; return ap.kind==='patterns'?view==='pat'&&pt.id===id:ap.kind==='tsx'?view==='other'&&ot.id===id:ap.kind==='memo'?view==='book'&&bk.memo&&!bk.sec:false; }
 function apMark(){
-  const on=ap.el&&!ap.el.paused&&view==='pat'&&pt.id===ap.q[ap.i]?apSecNow():null;
+  const on=ap.el&&!ap.el.paused&&apHere()?apSecNow():null;
   main.querySelectorAll('[data-psec]').forEach(el=>el.classList.toggle('secnow',el.dataset.psec===on));
 }
 // 또 나온 문장: 두 회차 이상 나온 지문. O/X 퀴즈 또는 목록
@@ -1542,12 +1574,15 @@ function repLast(r){ const s=S.rep[r.ref]; return s?s.l:-1; }
 function repHtml(){
   const f=pt.rf, pool=repPool(), known=pool.filter(r=>repLast(r)===1).length, missed=pool.filter(r=>repLast(r)===0).length;
   const n3=P.repeats.filter(r=>r.rounds.length>=3).length, todo=pool.length-known;
+  const au=pool.filter(r=>hasAudio(r.ref,'rep')), auMiss=au.filter(r=>repLast(r)===0);
   return `<div class="card"><b>또 나온 문장</b>
     <p style="margin:6px 0 0;font-size:15px;line-height:1.6">10년 동안 같은 문장이 두 번 이상 나왔다(세 번 이상 ${n3}개). <b>정오도 매번 같았다.</b> 이 문장이 보이면 생각하지 말고 바로 O/X.</p>
     <div class="chips">${[['all','둘 다'],['civ','민법'],['rea','학개론']].map(([k,l])=>`<button class="chipbtn ${f.subj===k?'on':''}" data-rs="${k}">${l}</button>`).join('')}<span style="width:6px"></span>${[[3,'3회 이상'],[2,'2회 이상']].map(([k,l])=>`<button class="chipbtn ${f.min===k?'on':''}" data-rm="${k}">${l}</button>`).join('')}</div>
     <div class="stat"><div><b>${pool.length}</b><span>문장</span></div><div><b>${known}</b><span>마지막에 맞힘</span></div><div><b>${missed}</b><span>마지막에 틀림</span></div></div>
     <div class="btns"><button class="btn n small" id="repGo">▶ O/X 퀴즈 ${todo||pool.length}개</button></div>
-    <div class="btns" style="margin-top:8px">${missed?`<button class="btn x small" id="repMiss">틀린 것만 ${missed}개</button>`:''}<button class="btn ghost small" id="repList">목록으로 읽기</button></div></div>`;
+    <div class="btns" style="margin-top:8px">${missed?`<button class="btn x small" id="repMiss">틀린 것만 ${missed}개</button>`:''}<button class="btn ghost small" id="repList">목록으로 읽기</button></div>
+    ${au.length?`<div class="btns" style="margin-top:8px"><button class="btn ghost small" id="repAu">🔊 내 목소리로 ${au.length}개 듣기</button>${auMiss.length?`<button class="btn ghost small" id="repAuMiss">🔊 틀린 것만 ${auMiss.length}개</button>`:''}</div>
+    <p class="muted" style="font-size:12px;margin:6px 0 0">지문 → 2초 생각 → 맞는 말 / 틀린 말·바르게는 → 해설.${au.length<pool.length?` 소리는 아직 ${au.length}개(3회 이상 나온 문장)만 있습니다.`:''}</p>`:''}</div>`;
 }
 function bindRep(){
   main.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{ pt.rf.subj=b.dataset.rs; keepY(renderPatList); });
@@ -1556,6 +1591,9 @@ function bindRep(){
   main.querySelector('#repGo').onclick=()=>{ const q=pool.filter(r=>repLast(r)!==1); startDrill(q.length?q:pool,'quiz'); };
   const rm=main.querySelector('#repMiss'); if(rm) rm.onclick=()=>startDrill(pool.filter(r=>repLast(r)===0),'quiz');
   main.querySelector('#repList').onclick=()=>startDrill(pool,'list');
+  const au=pool.filter(r=>hasAudio(r.ref,'rep')).map(r=>r.ref);
+  const ra=main.querySelector('#repAu'); if(ra) ra.onclick=()=>apStart(au,null,null,'rep');
+  const rx=main.querySelector('#repAuMiss'); if(rx) rx.onclick=()=>apStart(pool.filter(r=>repLast(r)===0).map(r=>r.ref),null,null,'rep');
 }
 function startDrill(q,mode){ pt.drill={q, i:0, phase:'ask', pick:null, mode, ok:0}; window.scrollTo(0,0); renderDrill(); }
 function renderDrill(){
@@ -1650,6 +1688,7 @@ function renderOther(){
     loadTs().then(()=>{ if(view==='other') renderOther(); }).catch(()=>{ if(view==='other') main.innerHTML='<div class="card">타시험 자료(tasihum.json)를 불러오지 못했습니다. 인터넷 연결을 확인하세요.</div>'; });
     return;
   }
+  if(!AU) loadAudio().then(a=>{ if(view==='other'&&a.tsx) keepY(renderOther); });  // 듣기 버튼은 오디오 목록이 오면 붙인다
   if(ot.id&&tsById(ot.id)) renderOtherDetail(ot.id); else renderOtherList();
 }
 function renderOtherList(){
@@ -1658,16 +1697,20 @@ function renderOtherList(){
   if(ot.r1) L=L.filter(c=>c.rank===1);
   if(ot.nw) L=L.filter(c=>tsNew(c.g)||c.lines.some(l=>tsNew(l.g)));
   const row=c=>{ const n=tsExams(c); return `<button class="srow ${seen(c)?'read':''}" data-oid="${c.id}"><span class="ck">${seen(c)?'✓':''}</span>${tsRank(c)}<span class="t"><b>${esc(c.title)}</b><small>${[n?`올해 ${n}곳`:'',c.subj==='rea'?esc(c.unit):'',c.g?(tsNew(c.g)?'공인 미출제':'공인 '+esc(c.g)):''].filter(Boolean).join(' · ')}</small></span><span class="f">${c.lines.length>1?c.lines.length+'줄':''}</span></button>`; };
-  let body='';
-  if(tab==='civ'){ for(const sec of Object.keys(TS_SEC)){ const cs=L.filter(c=>c.sec===sec); if(cs.length) body+=`<div class="oth">${TS_SEC[sec]}</div>`+cs.map(row).join(''); } }
-  else { for(const [r,lab] of [[1,'1순위 · 공인중개사에 거의 안 나온 논점'],[2,'2순위 · 단골 논점의 새 각도'],[3,'3순위 · 공인중개사와 같은 각도']]){ const cs=L.filter(c=>c.rank===r); if(cs.length) body+=`<div class="oth">${lab}</div>`+cs.map(row).join(''); } }
+  let body=''; const shown=[];  // 이어 듣기는 화면에 보이는 순서대로
+  const group=(lab,cs)=>{ if(!cs.length) return; body+=`<div class="oth">${lab}</div>`+cs.map(row).join(''); shown.push(...cs); };
+  if(tab==='civ'){ for(const sec of Object.keys(TS_SEC)) group(TS_SEC[sec],L.filter(c=>c.sec===sec)); }
+  else { for(const [r,lab] of [[1,'1순위 · 공인중개사에 거의 안 나온 논점'],[2,'2순위 · 단골 논점의 새 각도'],[3,'3순위 · 공인중개사와 같은 각도']]) group(lab,L.filter(c=>c.rank===r)); }
+  const nAu=shown.filter(c=>hasAudio(c.id,'tsx')).length;
   main.innerHTML=`<div class="card"><div class="row"><b style="font-size:19px">다른 시험이 올해 먼저 낸 논점</b><span class="muted">${pp.pass}회독 ${pp.done}/${pp.total}</span></div>
     <p style="margin:6px 0 0;font-size:15px;line-height:1.6">2026년 8개 시험(감평·주관·노무·행정·세무·법원직 9급·법무사·변시) 기출에서 37회에 다시 나올 만한 것만 모았다. <b>형광펜 자리</b>(출제자가 바꿔 치는 말)를 가린 채 줄을 눌러 확인한다.</p>
     <p class="muted" style="margin:4px 0 0;font-size:12px">카드 안 줄을 하나씩 다 눌러 보면 ✓. ${tab==='civ'?'1순위 = 올해 시험 3곳 이상, 2순위 = 2곳이거나 최신 판례가 시험에 나옴.':'학개론은 감정평가사 37회(4. 4.) 부동산학원론에서 골랐다.'}</p>
     <div class="pbar2"><i style="width:${pp.total?Math.round(100*pp.done/pp.total):0}%"></i></div></div>
   <div class="seg">${[['civ',`민법 ${TS.civ.length}`],['rea',`학개론 ${TS.rea.length}`]].map(([k,l])=>`<button data-otab="${k}" class="${tab===k?'on':''}">${l}</button>`).join('')}</div>
   <div class="chips"><button class="chipbtn ${ot.r1?'on':''}" id="oR1">1순위만</button><button class="chipbtn ${ot.nw?'on':''}" id="oNw">공인 미출제만</button></div>
+  ${nAu?`<div class="btns" style="margin-bottom:12px"><button class="btn ghost small" id="oListen">🔊 내 목소리로 ${tab==='civ'?'민법':'학개론'} ${nAu}장 이어 듣기</button></div>`:''}
   ${body?`<div class="card" style="padding:2px 12px">${body}</div>`:'<div class="card muted">조건에 맞는 논점이 없습니다.</div>'}`;
+  const ol=main.querySelector('#oListen'); if(ol) ol.onclick=()=>apStart(shown.map(c=>c.id),null,null,'tsx');
   main.querySelectorAll('[data-otab]').forEach(b=>b.onclick=()=>{ ot.tab=b.dataset.otab; keepY(renderOtherList); });
   main.querySelector('#oR1').onclick=()=>{ ot.r1=!ot.r1; keepY(renderOtherList); };
   main.querySelector('#oNw').onclick=()=>{ ot.nw=!ot.nw; keepY(renderOtherList); };
@@ -1681,7 +1724,7 @@ function tsRdTag(c){
 function tsCnt(c){ const k=tsOpenSet(c.id).size, n=c.lines.length; return k>=n?`<span class="prd on" id="tsCnt">✓ ${n}줄 다 눌러 봄</span>`:`<span class="prd" id="tsCnt">${k}/${n} 눌러 봄</span>`; }
 function tsLineHtml(c,l,i){
   const meta=[l.r?`<span>${esc(l.r)}</span>`:'', tsG(l.g), l.f?`<span class="tag fr">${esc(l.f)}</span>`:''].filter(Boolean).join('');
-  return `<li class="oxi tsi${tsOpenSet(c.id).has(i)?' did':''}" data-i="${i}"><div class="tx">${tsHl(l.t)}</div>
+  return `<li class="oxi tsi${tsOpenSet(c.id).has(i)?' did':''}" data-i="${i}"><div class="h"><div class="tx">${tsHl(l.t)}</div></div>
     <div class="more">${l.x?`<div class="tsx"><b>틀린 꼴</b><del>${esc(l.x)}</del></div>`:''}${l.trap?`<div class="tsx"><b>바꿔 나오는 자리</b>${esc(l.trap)}</div>`:''}${l.calc?`<div class="calc" style="margin-top:4px">풀이  ${esc(l.calc)}</div>`:''}${meta?`<div class="tsm">${meta}</div>`:''}</div></li>`;
 }
 function renderOtherDetail(id){
@@ -1689,7 +1732,7 @@ function renderOtherDetail(id){
   main.innerHTML=`<div class="reader">
     <div class="row"><button class="linkbtn" id="oList">‹ 타시험 목록</button><span class="muted" style="font-size:12px">${c.subj==='civ'?'민법':'학개론'} ${k+1} / ${list.length}</span></div>
     <h2 class="st">${esc(c.title)}</h2>
-    <div>${tsRank(c)}${n?`<span class="tag">올해 ${n}곳</span>`:''}${tsG(c.g)}${c.fresh?'<span class="tag fr">최근 바뀐 제도</span>':''}${tsRdTag(c)}</div>
+    <div>${tsRank(c)}${n?`<span class="tag">올해 ${n}곳</span>`:''}${tsG(c.g)}${c.fresh?'<span class="tag fr">최근 바뀐 제도</span>':''}${tsRdTag(c)}${hasAudio(id,'tsx')?'<button class="chipbtn" id="oListen1" style="margin-top:6px">🔊 이 카드부터 듣기</button>':''}</div>
     ${c.why?`<p class="muted" style="font-size:14px;margin:8px 0 0;line-height:1.55">${esc(c.why)}</p>`:''}
     <div class="sech"><h3>눌러서 확인 ${c.lines.length}줄</h3>${tsCnt(c)}<button class="chipbtn ${ot.hide?'on':''}" id="oHide">${ot.hide?'답 가림':'답 가리기'}</button></div>
     <p class="muted" style="font-size:12px;margin:0 0 2px">${ot.hide?'회색 자리에 들어갈 말을 먼저 떠올리고 줄을 눌러 확인하세요. 다 눌러 보면 ✓ 읽었어요.':'노란 형광펜은 출제자가 바꿔 치는 자리, 빨간 줄은 다른 시험이 실제로 바꿔 낸 틀린 꼴. ✓ 읽었어요는 답을 가리고 눌러 볼 때만 셉니다.'}</p>
@@ -1710,6 +1753,13 @@ function renderOtherDetail(id){
     main.querySelector('#tsCnt').outerHTML=tsCnt(c);
   });
   main.querySelectorAll('[data-ogo]').forEach(b=>b.onclick=()=>{ ot.id=b.dataset.ogo; render(); });
+  // 듣기(10-27): 이 카드부터 이어서 다음 카드로. 줄마다 ▶ = 그 줄부터(빈칸 문장 → 생각할 틈 → 온전한 문장 → 틀린 꼴). 줄을 펼치지는 않는다
+  const ids=list.map(x=>x.id), pa=hasAudio(id,'tsx')&&AU.tsx[id].parts;
+  const l1=main.querySelector('#oListen1'); if(l1) l1.onclick=()=>apStart(ids,id,0,'tsx');
+  if(pa) main.querySelectorAll('#tsl .tsi').forEach(li=>{ const k='l'+li.dataset.i; if(pa[k]==null) return; li.dataset.psec=k;
+    const b=document.createElement('button'); b.className='psec'; b.textContent='▶'; b.setAttribute('aria-label','이 줄부터 듣기');
+    b.onclick=ev=>{ ev.stopPropagation(); apStart(ids,id,pa[k],'tsx'); }; li.querySelector('.h').appendChild(b); });
+  apMark();
 }
 
 function migrate(){
