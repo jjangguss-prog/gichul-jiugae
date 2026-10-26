@@ -749,7 +749,7 @@ function renderCard(){
   <div class="card">
     <div><span class="tag ${Q.grade}">${Q.grade}급</span><span class="tag">${subj} ${Q.round}회 ${Q.no}번</span>${F.tag?`<span class="tag" style="background:var(--line);color:var(--ink2)">${F.tag}</span>`:''}${st.st===1&&s.phase==='ask'?`<span class="muted" style="font-size:12px">지우기까지 ${dots(st.k.length)}</span>`:''}</div>
     <div class="muted" style="font-size:12px;margin-top:4px">${esc(Q.concept)}</div>
-    ${c.kind==='calc'&&Q.img?`<img class="qimg" src="${Q.img}" alt="${Q.round}회 ${Q.no}번 문제 원문">`:(c.mode==='member'?(Q.facts?`<div class="qstem">${esc(Q.facts)}</div>`:''):`<div class="qstem">${esc(Q.question)}</div>`)}
+    ${c.kind==='calc'&&Q.img?qimgHtml(Q.img,`${Q.round}회 ${Q.no}번 문제 원문`,`<div class="qstem">${esc(Q.question)}</div>${Q.passage&&Q.passage.length?`<div class="passage">${esc(Q.passage.join('\n'))}</div>`:''}${s.phase==='ask'?`<div class="choice" style="font-size:16px">${Q.choices.map((t,i)=>`<div style="margin:4px 0">${CIRC[i]} ${esc(t)}</div>`).join('')}</div>`:''}`):(c.mode==='member'?(Q.facts?`<div class="qstem">${esc(Q.facts)}</div>`:''):`<div class="qstem">${esc(Q.question)}</div>`)}
     ${!(c.kind==='calc'&&Q.img)&&Q.passage&&Q.passage.length&&(c.kind==='calc'||c.n.match(/[①②③④⑤]/))?`<div class="passage">${esc(Q.passage.join('\n'))}</div>`:''}`;
   if(c.kind==='calc'){
     if(!Q.img||s.phase!=='ask') html+=`<div class="choice" style="font-size:16px">${Q.choices.map((t,i)=>`<div style="margin:4px 0;${s.phase!=='ask'&&CIRC[i]===c.ox?'color:var(--o);font-weight:800':''}${s.phase!=='ask'&&CIRC[i]===s.pick&&s.pick!==c.ox?'color:var(--x);text-decoration:line-through':''}">${CIRC[i]} ${esc(t)}</div>`).join('')}</div>`;
@@ -999,11 +999,19 @@ function renderExam(){
   main.innerHTML=html+'</div>';
   main.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ exam={round:+b.dataset.r, subj:b.dataset.s, answers:{}, done:false, startAt:Date.now()}; renderExamPaper(); });
 }
+// 문제 원문 그림(계산·번호 고르기 74문항). 못 불러오면 한 번 다시 받고, 그래도 안 되면 같은 문제를 글자로 보여 준다
+// (10-26 PD: 폰에서 그림이 안 떠 보기 번호만 남아 문제를 못 읽음)
+function qimgHtml(src,alt,textHtml){ return `<img class="qimg" src="${src}" alt="${alt}" data-try="0" onerror="qimgFail(this)"><div class="qimgtx" hidden>${textHtml}</div>`; }
+function qimgFail(im){
+  if(im.dataset.try==='0'){ im.dataset.try='1'; im.src=im.getAttribute('src').split('?')[0]+'?r='+Date.now(); return; }
+  im.style.display='none'; const t=im.nextElementSibling; if(t&&t.classList.contains('qimgtx')) t.hidden=false;
+}
 function renderExamPaper(){
   const qs=Object.values(D.questions).filter(q=>q.round===exam.round&&q.subject===exam.subj).sort((a,b)=>a.no-b.no);
   let html=`<div class="exam"><div class="row"><b>${exam.round}회 ${exam.subj==='rea'?'부동산학개론':'민법'}</b><button class="btn ghost small" style="flex:0 0 auto;padding:6px 10px" id="exit">나가기</button></div>`;
   for(const q of qs){
-    html+=q.img?`<img class="qimg" src="${q.img}" alt="${q.no}번 문제 원문">`:`<div class="q">${q.no}. ${esc(q.question)}</div>${q.passage.length?`<div class="passage">${esc(q.passage.join('\n'))}</div>`:''}`;
+    const qt=`<div class="q">${q.no}. ${esc(q.question)}</div>${q.passage.length?`<div class="passage">${esc(q.passage.join('\n'))}</div>`:''}`;
+    html+=q.img?qimgHtml(q.img,`${q.no}번 문제 원문`,qt):qt;
     q.choices.forEach((t,i)=>{ const sel=exam.answers[q.no]===i+1; let cls='opt'+(sel?' sel':''); if(exam.done){ if(q.all_correct?sel:(i+1===q.answer)) cls+=' right'; else if(sel) cls+=' wrongsel'; } html+=`<button class="${cls}" data-q="${q.no}" data-i="${i+1}">${CIRC[i]} ${esc(t)}</button>`; });
     if(exam.done&&q.core) html+=`<div class="note">${md(q.core)}</div>`;
   }
