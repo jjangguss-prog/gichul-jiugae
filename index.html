@@ -359,7 +359,7 @@ function save(){ stamp(); try{ localStorage.setItem('jiugae',JSON.stringify(S));
 function today(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
 function daysLeft(){ return Math.max(0,Math.ceil((EXAM_DATE-new Date())/86400000)); }
 function normalize(){
-  S.cards=S.cards||{};      // id -> {st:0새/1학습/2지움, k:근거까지 안 날짜들[], last:날짜, due:날짜, miss:틀린 수, seen:본 수}
+  S.cards=S.cards||{};      // id -> {st:0새/1학습/2지움, k:근거까지 안 날짜들[], kt:마지막으로 센 시각(ms), last:날짜, due:날짜, miss:틀린 수, seen:본 수}
   S.log=S.log||[];          // {d,subj,ok,id,ts:시각,v:기기}
   S.exam=S.exam||{};        // round -> {answers:{}, score, date}
   S.minutes=S.minutes||60;
@@ -550,12 +550,13 @@ function cardState(id){ return S.cards[id]||(S.cards[id]={st:0,k:[],last:'',due:
 // five = '5문제만'(10-24 PD: 15분 29장은 정오 판단하고 해설까지 읽으면 택도 없다). 한 번에 5장, 복습 2·새 카드 3이고 모자라면 서로 채운다.
 // 지운 카드 검사는 오늘 검사한 게 3장이 될 때까지만 그중 한 자리에 끼운다(하루 시간 분량은 '시작'마다 3장).
 function buildQueue(five){
-  const t=today(); const d=S.daily[t]||(S.daily[t]={new:0,rev:0,sec:0});
-  const review=[], fresh=[], audit=[];
+  const t=today(), now=Date.now(); const d=S.daily[t]||(S.daily[t]={new:0,rev:0,sec:0});
+  const review=[], fresh=[], audit=[]; let wait=0, next=0;
   for(const c of D.cards){
     const s=cardState(c.id);
     if(s.st===2){ audit.push(c); continue; }
-    if(s.st===1){ if(s.due<=t) review.push(c); }
+    // 1/3·2/3 카드는 맞힌 지 1시간이 지나면 나온다(예전 규칙이 적어 둔 내일·모레 due는 안 본다). 0/3은 due 날짜대로
+    if(s.st===1){ if(!s.k.length){ if(s.due<=t) review.push(c); } else { const at=readyAt(s); if(at<=now) review.push(c); else { wait++; if(!next||at<next) next=at; } } }
     else fresh.push(c);
   }
   // 복습: 틀린 수 많은 것 먼저
@@ -567,14 +568,14 @@ function buildQueue(five){
     const f=Math.min(fresh.length, n-Math.min(review.length,2)), r=Math.min(review.length, n-f);
     const q=[...review.slice(0,r), ...fresh.slice(0,f)];
     if(aud) q.splice(Math.min(q.length,2),0,auditPick[0]);
-    return {q, review:review.length, fresh:fresh.length, deleted:audit.length};
+    return {q, review:review.length, fresh:fresh.length, deleted:audit.length, wait, next};
   }
   // 분량: 60분이면 복습 최대 45 + 새 카드 35 정도. 시간에 비례
   const m=S.minutes; const revN=Math.round(m*0.7), newN=Math.round(m*1.0);
   const q=[...review.slice(0,revN), ...fresh.slice(0,newN)];
   // 검사 카드는 중간중간 끼움
   auditPick.forEach((c,i)=>q.splice(Math.min(q.length, 5+i*8),0,c));
-  return {q, review:review.length, fresh:fresh.length, deleted:audit.length};
+  return {q, review:review.length, fresh:fresh.length, deleted:audit.length, wait, next};
 }
 function auditToday(){ const t=today(); return S.log.filter(l=>l.d===t&&l.au).length; } // 판단 기록이라 다른 기기에서 검사한 것도 센다
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
@@ -637,6 +638,7 @@ function renderToday(){
       <div><b>${info.deleted}</b><span>지운 카드</span></div>
     </div>
     <p class="muted">오늘 한 것: 새 카드 ${d.new}장, 복습 ${d.rev}장, ${Math.round(d.sec/60)}분</p>
+    ${info.wait?`<p class="muted" style="font-size:13px;margin-top:-4px">맞힌 지 1시간이 안 된 카드 ${info.wait}장은 ${hm(info.next)}부터 차례로 복습에 나옵니다.</p>`:''}
     <div class="btns"><button class="btn n" id="start">▶ 시작 (${info.q.length}장)</button></div>
     <div class="btns" style="margin-top:8px"><button class="btn n" id="start5">▶ 5문제만</button></div>
     <p class="muted" style="margin:8px 0 0">5문제만: 복습 2장 + 새 카드 3장. 끝나면 '5문제 더'로 이어 갑니다.</p>
@@ -662,7 +664,7 @@ function renderToday(){
       <li><b>옳은 말 카드</b>: 문장이 맞으면 <b>O</b>, 틀리면 <b>X</b>. 발문이 '틀린 것은?'이어도 문장 자체만 본다.</li>
       <li><b>예/아니오 카드</b>(해당하는 것·아닌 것을 묻는 문제): 위에 적힌 질문에 <b>예 / 아니오</b>만 답한다. 발문의 '않는 것'은 신경 쓰지 않는다.</li>
       <li>근거를 읽고 <b>다음 →</b>. 아는지 모르는지 고를 필요 없다. 이해 안 되면 🤔 버튼을 누르고 넘어간다(내일 다시 나온다).</li>
-      <li><b>서로 다른 날 3번 연속</b> 맞히면 저절로 지워진다. 두 번째는 하루 뒤, 세 번째는 이틀 뒤부터 센다. 한 번이라도 틀리면 0부터. 카드 위 ●●○가 지금 연속 기록이다.</li>
+      <li><b>3번 연속</b> 맞히면 저절로 지워진다. 날은 안 따진다. 다만 맞힌 뒤 <b>1시간</b>이 지나야 다음 정답을 센다(방금 본 답을 기억해서 맞히는 것은 안 친다). 한 번이라도 틀리면 0부터. 카드 위 ●●○가 지금 연속 기록이다.</li>
       <li>세 번째는 <b>지우기 시험</b>이다. 실전처럼 회색 칠 없이, 이 카드 문장 그대로이거나 논점 자리가 반대인 문장(다른 회차에 실제로 나온 기출, 또는 틀린 기출을 바로잡은 문장)이 나온다. 지어낸 문장은 내지 않는다. 답만 외웠으면 여기서 걸린다. 맞혔어도 답만 외운 것 같으면 뒷면의 <b>↩ 답만 외운 것 같아요</b>로 남긴다.</li>
       <li>지운 카드는 하루 3장씩 몰래 다시 나온다(이것도 바꾼 문장일 수 있다). 틀리면 되살아난다. 현황 탭에서 지운 카드를 한꺼번에 다시 점검할 수도 있다.</li>
       <li>맨 위 <b>전체 진도</b>: 지우지 않은 카드를 전부 한 번씩 보면 1회독, 두 번씩 보면 2회독. 지운 카드는 끝난 것으로 친다.</li>
@@ -901,11 +903,18 @@ function askText(c,Q){
 function claudeUrl(c,Q){ return 'https://claude.ai/new?q='+encodeURIComponent(askText(c,Q)); }
 function copyText(t){ try{ navigator.clipboard.writeText(t).then(()=>alert('복사했습니다. Claude 앱에 붙여 넣으세요.'),()=>fallbackCopy(t)); }catch(e){ fallbackCopy(t); } }
 function fallbackCopy(t){ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); alert('복사했습니다'); }catch(e){ prompt('아래 글을 길게 눌러 복사하세요', t); } ta.remove(); }
-// 지우기 규칙: 서로 다른 날 연속으로 맞히면 저절로 지운다. 한 번이라도 틀리면 0부터.
-// STREAK_GAP[n] = n번째까지 센 뒤 며칠 지나야 다음 정답을 세나. 첫 번째는 언제든, 두 번째는 하루 뒤, 세 번째는 이틀 뒤부터.
+// 지우기 규칙: 3번 연속 맞히면 저절로 지운다. 한 번이라도 틀리면 0부터.
+// 10-28 PD: 시험(10-31)까지 사흘이라 서로 다른 날(하루 뒤·이틀 뒤)로 세면 새로 본 카드는 시험 전에 못 지운다. 날은 안 따지고 시간으로 띄운다.
+// STREAK_GAP[n] = n번째까지 센 뒤 몇 분 지나야 다음 정답을 세나. 첫 번째는 언제든, 두 번째·세 번째는 1시간 뒤부터.
+// 간격을 아예 없애면 복습이 앞에 서는 큐라 방금 맞힌 카드가 다음 '시작'·'5문제 더'에 곧장 다시 나와, 방금 본 답으로 몇 분 만에 지워진다.
 // OX 카드를 찍어서 3번 연속 맞힐 확률은 1/8이고, 지운 카드는 하루 3장씩 몰래 다시 나와 틀리면 되살아난다.
-const STREAK_GAP=[0,1,2], STREAK_N=STREAK_GAP.length;
-// 카드 판정. 돌려주는 값은 뒷면에 띄울 연속 기록 결과: {r:'del'|'up'|'wait'|'miss'|'audit'|'revive', n:지금 연속, prev:틀리기 전 연속, gap:더 기다릴 날}
+const STREAK_GAP=[0,60,60], STREAK_N=STREAK_GAP.length;
+// 마지막으로 센 시각(kt). 예전 기록은 날짜(k)뿐이라 그날 0시로 친다
+function lastHit(st){ const n=st.k.length; return n?Math.max(st.kt||0,dayMs(st.k[n-1])):0; }
+// 다음 정답을 셀 수 있는 시각. 0/3이면 언제든
+function readyAt(st){ const n=st.k.length; return n?lastHit(st)+STREAK_GAP[Math.min(n,STREAK_N-1)]*60000:0; }
+function hm(ms){ const x=new Date(ms); return String(x.getHours()).padStart(2,'0')+':'+String(x.getMinutes()).padStart(2,'0'); }
+// 카드 판정. 돌려주는 값은 뒷면에 띄울 연속 기록 결과: {r:'del'|'up'|'wait'|'miss'|'audit'|'revive', n:지금 연속, prev:틀리기 전 연속, at:다음 정답을 세는 시각}
 function judge(c, ok){
   const Q=D.questions[c.q], st=cardState(c.id), t=today(); const d=S.daily[t]||(S.daily[t]={new:0,rev:0,sec:0});
   const L={d:t, subj:Q.subject, ok, id:c.id}; if(st.st===2) L.au=1; // au = 지운 카드 검사
@@ -921,14 +930,13 @@ function judge(c, ok){
     res={r:'audit', n:prev};
   } else {
     st.st=1;
-    const need=STREAK_GAP[Math.min(prev,STREAK_N-1)], gone=prev?dayDiff(st.k[prev-1],t):0;
-    if(!prev||gone>=need){
-      st.k.push(t);
+    const now=Date.now(), at=readyAt(st);
+    if(!prev||now>=at){
+      st.k.push(t); st.kt=now;
       if(st.k.length>=STREAK_N){ st.st=2; res={r:'del', n:st.k.length}; }
-      else { st.due=addDays(t,STREAK_GAP[st.k.length]); res={r:'up', n:st.k.length}; }
+      else { st.due=t; res={r:'up', n:st.k.length, at:readyAt(st)}; }
     } else {
-      if(!(st.due>t)) st.due=addDays(t,1);
-      res={r:'wait', n:prev, gap:need-gone};
+      res={r:'wait', n:prev, at};
     }
     if(S.confused[c.id]&&S.confused[c.id]<t) delete S.confused[c.id]; // 이해 안 됐던 카드를 다른 날 맞히면 목록에서 뺀다
   }
@@ -946,11 +954,11 @@ function dayDiff(a,b){ return Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(
 function dots(n){ n=Math.min(n,STREAK_N); return '●'.repeat(n)+'○'.repeat(STREAK_N-n); }
 function streakHtml(res){
   if(!res) return '';
-  const N=STREAK_N, when=g=>g<=1?'내일':g===2?'모레':`${g}일 뒤`;
+  const N=STREAK_N, when=at=>{ const m=Math.max(1,Math.ceil((at-Date.now())/60000)); return `${m>=60?Math.floor(m/60)+'시간'+(m%60?` ${m%60}분`:''):m+'분'} 뒤(${hm(at)})`; };
   const m={
-    del:['ok',`✂ 지웠습니다 · 서로 다른 날 ${N}번 연속 맞힘`],
-    up:['up',`지우기까지 ${dots(res.n)} ${res.n}/${N} · ${when(STREAK_GAP[res.n])}부터 또 맞히면 ${res.n+1===N?'저절로 지워집니다':`${res.n+1}/${N}`}`],
-    wait:['',`지우기까지 ${dots(res.n)} ${res.n}/${N} · 이번 건 안 셉니다(${when(res.gap)}부터 셉니다)`],
+    del:['ok',`✂ 지웠습니다 · ${N}번 연속 맞힘`],
+    up:['up',`지우기까지 ${dots(res.n)} ${res.n}/${N} · ${when(res.at)}부터 또 맞히면 ${res.n+1===N?'저절로 지워집니다':`${res.n+1}/${N}`}`],
+    wait:['',`지우기까지 ${dots(res.n)} ${res.n}/${N} · 맞힌 지 1시간이 안 돼 이번 건 안 셉니다 · ${when(res.at)}부터 셉니다`],
     miss:['bad',res.prev?`연속 ${res.prev}번이 끊겼습니다 · 0/${N}부터 다시`:`지우기까지 ${dots(0)} 0/${N} · 다시 나옵니다`],
     audit:['ok','지운 카드 검사 통과 · 그대로 지워 둡니다'],
     revive:['bad','지운 카드였는데 틀려서 되살렸습니다 · 0/'+N+'부터 다시'],
@@ -964,9 +972,9 @@ function streakHtml(res){
 // 반대 문장(10-24 PD: 기출된 적 없는 변형은 억지다): ① 다른 회차에 실제로 나온 쌍둥이 기출(cards.json tw, 118장,
 // 글자 유사도로 찾고 같은 명제·같은 발문 맥락인지 손으로 골랐다) ② 없으면 틀린 말 카드만 바로잡은 옳은 문장.
 // 옳은 말 카드를 지어낸 말로 틀리게 바꾼 문장은 내지 않는다. 바꿀 문장이 없는 카드는 예전처럼 낸다.
-function willDelete(st,t){ const n=st.k.length; return st.st===1&&n===STREAK_N-1&&dayDiff(st.k[n-1],t)>=STREAK_GAP[n]; }
+function willDelete(st){ return st.st===1&&st.k.length===STREAK_N-1&&Date.now()>=readyAt(st); }
 function testForm(c,st){
-  const audit=st.st===2, f=audit||willDelete(st,today())?flipOf(c):null;
+  const audit=st.st===2, f=audit||willDelete(st)?flipOf(c):null;
   return {tag:audit?'지운 카드 검사':f?'지우기 시험':'', test:!!f, flip:f&&Math.random()<0.5?f:null};
 }
 function edPlain(t,ed){ let b='', last=0; for(const [p,f,to] of ed){ b+=t.slice(last,p)+(to||''); last=p+f.length; } return (b+t.slice(last)).replace(/ {2,}/g,' ').replace(/ +([,.])/g,'$1').trim(); }
