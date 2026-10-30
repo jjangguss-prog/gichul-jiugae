@@ -471,7 +471,7 @@ function localAhead(R){
 let SY=(()=>{ try{ return JSON.parse(localStorage.getItem('jiugae-sync')||'{}'); }catch(e){ return {}; } })(); // {token, gist, last, err}
 function saveSY(){ try{ localStorage.setItem('jiugae-sync',JSON.stringify({token:SY.token,gist:SY.gist,last:SY.last,err:SY.err})); }catch(e){} }
 const GH='https://api.github.com', SFILE='jiugae-sync.json', LOGN=1000; // 판단 기록은 최근 1000개만 오간다(정확도는 과목별 최근 120개로 계산)
-let lastTag='', lastText='', lastUpd=''; // 마지막으로 받거나 올린 gist의 ETag·내용·서버 시각: 안 바뀌었으면 다시 받지 않는다
+let lastTag='', lastText='', lastUpd='', lastVer='', missedVer=''; // 마지막으로 받거나 올린 gist의 ETag·내용·서버 시각·판: 안 바뀌었으면 다시 받지 않는다
 async function gh(path,opt){
   opt=opt||{};
   const r=await fetch(GH+path,{method:opt.method||'GET',cache:'no-store',
@@ -492,12 +492,23 @@ async function ghRead(id){
     if(lastUpd&&g.updated_at&&g.updated_at<lastUpd){ const e=new Error('stale'); e.stale=true; throw e; }
     lastText=f.truncated?await fetch(f.raw_url,{cache:'no-store'}).then(x=>x.text()):f.content; lastTag=r.headers.get('ETag')||'';
     if(g.updated_at) lastUpd=g.updated_at;
+    lastVer=g.history&&g.history[0]?g.history[0].version:'';
   }
   return JSON.parse(lastText);
 }
+// 지난 판 하나를 받는다. 판 주소는 바뀌지 않아 캐시가 낡을 일이 없다
+async function ghRev(id,ver){
+  const g=await (await gh('/gists/'+id+'/'+ver)).json(), f=g.files&&g.files[SFILE]; if(!f) return null;
+  return JSON.parse(f.truncated?await fetch(f.raw_url,{cache:'no-store'}).then(x=>x.text()):f.content);
+}
 async function ghWrite(id,text){
+  const base=lastVer;
   const r=await gh(id?'/gists/'+id:'/gists',{method:id?'PATCH':'POST',body:id?{files:{[SFILE]:{content:text}}}:{description:'기출 지우개 공부 기록 (동기화용, 지우지 마세요)',public:false,files:{[SFILE]:{content:text}}}});
-  const g=await r.json(); lastText=text; lastTag=r.headers.get('ETag')||''; if(g.updated_at) lastUpd=g.updated_at; return g.id;
+  const g=await r.json(); lastText=text; lastTag=r.headers.get('ETag')||''; if(g.updated_at) lastUpd=g.updated_at;
+  const h=g.history||[]; lastVer=h[0]?h[0].version:'';
+  // 바로 앞 판이 내가 합친 판이 아니다: 받고 올리는 사이 다른 기기가 올렸다(10-31 00:47, 같은 초에 두 기기가 올림)
+  missedVer=base&&h[1]&&h[1].version!==base?h[1].version:'';
+  return g.id;
 }
 function payload(){
   const s={};
@@ -521,10 +532,17 @@ function syncNow(){
       if(Date.now()-t0<20000) break;
       lastTag=''; // 받는 사이 폰이 잠들었다 깨면(10-30 밤 4시간) 그 응답은 낡았을 수 있다: 처음부터 다시 받는다
     }
-    const ch=R&&R.app==='jiugae'?mergeRemote(R):false;
+    let ch=R&&R.app==='jiugae'?mergeRemote(R):false;
     if(ch){ try{ localStorage.setItem('jiugae',JSON.stringify(S)); }catch(e){} }
     if(!SY.gist) SY.gist=await ghWrite(null,payload());
-    else if(!R||localAhead(R)) await ghWrite(SY.gist,payload());
+    else if(!R||localAhead(R)){
+      await ghWrite(SY.gist,payload());
+      // 내가 덮은 판에 이 기기에 없던 기록이 있었으면 그 판을 받아 합치고 다시 올린다
+      for(let i=0;i<3&&missedVer;i++){
+        const M=await ghRev(SY.gist,missedVer); missedVer='';
+        if(M&&M.app==='jiugae'&&mergeRemote(M)){ ch=true; try{ localStorage.setItem('jiugae',JSON.stringify(S)); }catch(e){} await ghWrite(SY.gist,payload()); }
+      }
+    }
     SY.last=Date.now(); SY.err='';
     if(ch) afterMerge();
   })().catch(e=>{
