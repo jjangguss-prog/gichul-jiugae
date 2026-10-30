@@ -471,7 +471,7 @@ function localAhead(R){
 let SY=(()=>{ try{ return JSON.parse(localStorage.getItem('jiugae-sync')||'{}'); }catch(e){ return {}; } })(); // {token, gist, last, err}
 function saveSY(){ try{ localStorage.setItem('jiugae-sync',JSON.stringify({token:SY.token,gist:SY.gist,last:SY.last,err:SY.err})); }catch(e){} }
 const GH='https://api.github.com', SFILE='jiugae-sync.json', LOGN=1000; // 판단 기록은 최근 1000개만 오간다(정확도는 과목별 최근 120개로 계산)
-let lastTag='', lastText=''; // 마지막으로 받거나 올린 gist의 ETag·내용: 안 바뀌었으면 다시 받지 않는다
+let lastTag='', lastText='', lastUpd=''; // 마지막으로 받거나 올린 gist의 ETag·내용·서버 시각: 안 바뀌었으면 다시 받지 않는다
 async function gh(path,opt){
   opt=opt||{};
   const r=await fetch(GH+path,{method:opt.method||'GET',cache:'no-store',
@@ -488,13 +488,16 @@ async function ghRead(id){
   const r=await gh('/gists/'+id,{headers:lastTag&&lastText?{'If-None-Match':lastTag}:{}});
   if(r.status!==304){
     const g=await r.json(), f=g.files&&g.files[SFILE]; if(!f) return null;
+    // 이미 본 것보다 옛 판이 왔다(캐시에서 나온 응답 등): 이걸로 합쳐 올리면 다른 기기 기록을 덮어쓴다(10-31)
+    if(lastUpd&&g.updated_at&&g.updated_at<lastUpd){ const e=new Error('stale'); e.stale=true; throw e; }
     lastText=f.truncated?await fetch(f.raw_url,{cache:'no-store'}).then(x=>x.text()):f.content; lastTag=r.headers.get('ETag')||'';
+    if(g.updated_at) lastUpd=g.updated_at;
   }
   return JSON.parse(lastText);
 }
 async function ghWrite(id,text){
   const r=await gh(id?'/gists/'+id:'/gists',{method:id?'PATCH':'POST',body:id?{files:{[SFILE]:{content:text}}}:{description:'기출 지우개 공부 기록 (동기화용, 지우지 마세요)',public:false,files:{[SFILE]:{content:text}}}});
-  const g=await r.json(); lastText=text; lastTag=r.headers.get('ETag')||''; return g.id;
+  const g=await r.json(); lastText=text; lastTag=r.headers.get('ETag')||''; if(g.updated_at) lastUpd=g.updated_at; return g.id;
 }
 function payload(){
   const s={};
@@ -512,7 +515,12 @@ function syncNow(){
   syncP=(async()=>{
     if(!SY.gist){ SY.gist=await ghFind(); lastTag=lastText=''; }
     let R=null;
-    if(SY.gist){ try{ R=await ghRead(SY.gist); }catch(e){ if(e.status!==404) throw e; SY.gist=null; lastTag=lastText=''; } }
+    for(let i=0;i<3;i++){
+      const t0=Date.now();
+      if(SY.gist){ try{ R=await ghRead(SY.gist); }catch(e){ if(e.status!==404) throw e; SY.gist=null; lastTag=lastText=''; } }
+      if(Date.now()-t0<20000) break;
+      lastTag=''; // 받는 사이 폰이 잠들었다 깨면(10-30 밤 4시간) 그 응답은 낡았을 수 있다: 처음부터 다시 받는다
+    }
     const ch=R&&R.app==='jiugae'?mergeRemote(R):false;
     if(ch){ try{ localStorage.setItem('jiugae',JSON.stringify(S)); }catch(e){} }
     if(!SY.gist) SY.gist=await ghWrite(null,payload());
@@ -520,7 +528,9 @@ function syncNow(){
     SY.last=Date.now(); SY.err='';
     if(ch) afterMerge();
   })().catch(e=>{
-    SY.err=e.status===401?'토큰이 틀렸거나 만료됐습니다. 새 토큰으로 다시 연결하세요.'
+    if(e.stale) syncAgain=true;
+    SY.err=e.stale?'받은 기록이 옛것이라 이번엔 올리지 않았습니다. 잠시 뒤 다시 맞춥니다.'
+      :e.status===401?'토큰이 틀렸거나 만료됐습니다. 새 토큰으로 다시 연결하세요.'
       :e.status===403||e.status===404?`GitHub가 거절했습니다(${e.status}). 토큰에 gist 권한이 있는지 확인하세요.`
       :e.status===429?'GitHub가 잠시 막았습니다. 조금 뒤 저절로 다시 합니다.'
       :e.status?'GitHub 오류 '+e.status:'인터넷이 안 됩니다. 연결되면 저절로 맞춥니다.';
